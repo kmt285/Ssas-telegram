@@ -7,12 +7,10 @@ import asyncio
 # ==========================================================================
 # 🌟 PERFECT EVENT LOOP FIX FOR PYTHON 3.12 / 3.14 🌟
 # ဆာဗာရော Bot ရော အလုပ်လုပ်မည့် Loop တစ်ခုတည်းကိုသာ အသေသတ် ဆောက်ပါမည်။
-# asyncio.run() ကို လုံးဝမသုံးဘဲ ဤ Loop တစ်ခုတည်းဖြင့်သာ ပတ်ခိုင်းပါမည်။
 # ==========================================================================
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
-# ယခုအခါ ပြဿနာအားလုံး ကင်းစင်သွားသဖြင့် Pyrogram ကို စိတ်ချစွာ Import ပါမည်
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from aiohttp import web
@@ -36,7 +34,7 @@ if not API_ID or not API_HASH or not BOT_TOKEN or not BIN_CHANNEL:
     print("❌ CRITICAL ERROR: Environment Variables မပြည့်စုံပါ။")
     sys.exit(1)
 
-# Bot Client ကို အထက်ပါ Loop နှင့် တိုက်ရိုက် ချိတ်ဆက်တည်ဆောက်ခြင်း
+# Bot Client ကို တည်ဆောက်ခြင်း
 bot = Client("KMTStreamBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 routes = web.RouteTableDef()
 
@@ -48,7 +46,7 @@ routes = web.RouteTableDef()
 @bot.on_message(filters.command("start") & filters.private)
 async def start_command(client: Client, message: Message):
     await message.reply_text(
-        "👋 **KYAW MIN TUN - File Stream Bot မှ ကြိုဆိုပါတယ်ဗျာ။**\n\n"
+        "👋 **👋 KYAW MIN TUN - File Stream Bot မှ ကြိုဆိုပါတယ်ဗျာ။**\n\n"
         "📁 ကျွန်တော့်ထံသို့ မည်သည့် ဖိုင်၊ ဓာတ်ပုံ၊ ဗီဒီယို သို့မဟုတ် အော်ဒီယိုမဆို ပေးပို့လိုက်ပါ။\n"
         "💡 သင့် Blog/Website ၏ Download Button သို့မဟုတ် ဗီဒီယို Player တွင် တိုက်ရိုက်ထည့်သွင်းအသုံးပြုနိုင်မယ့် **Direct Link** ကို ချက်ချင်း ထုတ်ပေးသွားမှာ ဖြစ်ပါတယ်ခင်ဗျာ။",
         reply_to_message_id=message.id
@@ -78,7 +76,7 @@ async def handle_incoming_file(client: Client, message: Message):
 @bot.on_message(filters.private & filters.text)
 async def text_guide(client: Client, message: Message):
     await message.reply_text(
-        "ℹ️ **စာသား (Text) များကို လင့်ခ်ပြောင်းပေး၍ မရပါခင်ဗျာ။**\n\n"
+        "ℹ nighttime **စာသား (Text) များကို လင့်ခ်ပြောင်းပေး၍ မရပါခင်ဗျာ။**\n\n"
         "ဒေါင်းလုဒ်လင့်ခ် ထုတ်ယူလိုသော ဖိုင် (Document)၊ ဗီဒီယို (Video) သို့မဟုတ် ဓာတ်ပုံ (Photo) များကိုသာ ပူးတွဲ (Attachment) အနေဖြင့် ပေးပို့ပေးပါဗျာ။"
     )
 
@@ -132,11 +130,6 @@ async def main():
     try:
         await bot.start()
         print("✅ Telegram Bot Connected Successfully!")
-        
-        # 🌟 Webhook အဟောင်းများ ငြိနေပါက ရှင်းလင်းပစ်မည့် စနစ် (Conflict ရှင်းလင်းရေး)
-        await bot.delete_webhook()
-        print("🗑️ Old Webhooks deleted. Switched to Polling mode successfully.")
-        
     except Exception as e:
         print(f"❌ TELEGRAM CONNECTION FAILED: {e}")
         sys.exit(1)
@@ -153,5 +146,5 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    # asyncio.run() အစား စောစောက ဆောက်ခဲ့သော loop ကြီးဖြင့်သာ အသေသတ်၍ ပတ်ခိုင်းလိုက်ပါသည်
+    # စောစောက ဆောက်ခဲ့သော loop ကြီးဖြင့်သာ အသေသတ်၍ ပတ်ခိုင်းလိုက်ပါသည်
     loop.run_until_complete(main())
