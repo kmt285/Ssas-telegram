@@ -2,19 +2,30 @@
 import os
 import sys
 import mimetypes
-from pyrogram import Client, filters
-from pyrogram.types import Message
-from aiohttp import web
 import asyncio
 
 # ==========================================================================
-# ⚠️ ENVIRONMENT VARIABLES များကို ဘေးကင်းစွာ စစ်ဆေးဖတ်ရှုခြင်း
+# 🌟 PYTHON 3.12+ / 3.14 EVENT LOOP IMPORT BUG FIX 🌟
+# Pyrogram ကို import မလုပ်မီ ဤကုတ်ကို အပေါ်ဆုံးက ကြိုပတ်ပေးရပါမည်။
+# ==========================================================================
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+# ထိုအဆင့်ပြီးမှ Pyrogram ကို အန္တရာယ်ကင်းစွာ ခေါ်ယူပါမည်
+from pyrogram import Client, filters
+from pyrogram.types import Message
+from aiohttp import web
+
+# ==========================================================================
+# ⚠️ ENVIRONMENT VARIABLES များကို ဖတ်ရှုခြင်း
 # ==========================================================================
 try:
     API_ID = int(os.environ.get("API_ID", "0"))
     BIN_CHANNEL = int(os.environ.get("BIN_CHANNEL", "0"))
 except ValueError as e:
-    print(f"❌ ENV ERROR: API_ID သို့မဟုတ် BIN_CHANNEL ကို Number အစစ်ပဲ ထည့်ရပါမည်။ စာသားများ မပါရပါ။ ({e})")
+    print(f"❌ ENV ERROR: API_ID သို့မဟုတ် BIN_CHANNEL ကို Number အစစ်ပဲ ထည့်ရပါမည်။ ({e})")
     sys.exit(1)
 
 API_HASH = os.environ.get("API_HASH", "")
@@ -22,13 +33,10 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 APP_URL = os.environ.get("APP_URL", "")
 PORT = int(os.environ.get("PORT", "8080"))
 
-# မရှိမဖြစ်လိုအပ်သော Variable များ ရှိမရှိ စစ်ဆေးခြင်း
 if not API_ID or not API_HASH or not BOT_TOKEN or not BIN_CHANNEL:
-    print("❌ CRITICAL ERROR: Environment Variables (API_ID, API_HASH, BOT_TOKEN, BIN_CHANNEL) မပြည့်စုံပါ။")
-    print("💡 ဖြေရှင်းနည်း: Render Dashboard > Environment Tab ထဲတွင် Variable မူရင်းတန်ဖိုးများကို သေချာသွားထည့်ပေးပါ။")
+    print("❌ CRITICAL ERROR: Environment Variables မပြည့်စုံပါ။")
     sys.exit(1)
 
-# Telegram Bot Client စတင်ခြင်း
 bot = Client("KMTStreamBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 routes = web.RouteTableDef()
 
@@ -94,7 +102,7 @@ async def home_page(request):
     return web.Response(text="KYAW MIN TUN - Direct File Stream Engine is securely running Live!")
 
 # ==========================================================================
-# ၃။ SERVER နှင့် BOT ကို စတင်ပတ်မည့်စနစ် (လုံခြုံရေး Try-Catch ခံထားသည်)
+# ၃။ SERVER နှင့် BOT ကို စတင်ပတ်မည့်စနစ်
 # ==========================================================================
 async def main():
     print("🔄 Connecting to Telegram Servers...")
@@ -103,7 +111,6 @@ async def main():
         print("✅ Telegram Bot Connected Successfully!")
     except Exception as e:
         print(f"❌ TELEGRAM CONNECTION FAILED: {e}")
-        print("💡 အကြံပြုချက်: BOT_TOKEN, API_ID, API_HASH များကို မှန်ကန်မှု ရှိမရှိ ပြန်စစ်ပါ။")
         sys.exit(1)
 
     print("🔄 Starting Web Server...")
