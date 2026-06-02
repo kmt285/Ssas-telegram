@@ -5,8 +5,7 @@ import mimetypes
 import asyncio
 
 # ==========================================================================
-# 🌟 PERFECT EVENT LOOP FIX FOR PYTHON 3.12 / 3.14 🌟
-# ဆာဗာရော Bot ရော အလုပ်လုပ်မည့် Loop တစ်ခုတည်းကိုသာ အသေသတ် ဆောက်ပါမည်။
+# 🌟 PERFECT EVENT LOOP FIX FOR PYTHON 3.12 / 3.14
 # ==========================================================================
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
@@ -34,25 +33,23 @@ if not API_ID or not API_HASH or not BOT_TOKEN or not BIN_CHANNEL:
     print("❌ CRITICAL ERROR: Environment Variables မပြည့်စုံပါ။")
     sys.exit(1)
 
-# Bot Client ကို တည်ဆောက်ခြင်း
-bot = Client("KMTStreamBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# 🌟 RENDER RESTART FIX: in_memory=True ကို သုံးထားသဖြင့် ဆာဗာ Restart ဖြစ်လျှင် ဆက်ရှင်ငြိသည့် ပြဿနာ လုံးဝ မရှိတော့ပါ။
+bot = Client("KMTStreamBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, in_memory=True)
 routes = web.RouteTableDef()
 
 # ==========================================================================
 # ၁။ TELEGRAM BOT LOGIC
 # ==========================================================================
 
-# (က) /start ခလုတ်နှိပ်ပါက တုံ့ပြန်မည့်စနစ်
 @bot.on_message(filters.command("start") & filters.private)
 async def start_command(client: Client, message: Message):
     await message.reply_text(
-        "👋 **👋 KYAW MIN TUN - File Stream Bot မှ ကြိုဆိုပါတယ်ဗျာ။**\n\n"
+        "👋 **KYAW MIN TUN - File Stream Bot မှ ကြိုဆိုပါတယ်ဗျာ။**\n\n"
         "📁 ကျွန်တော့်ထံသို့ မည်သည့် ဖိုင်၊ ဓာတ်ပုံ၊ ဗီဒီယို သို့မဟုတ် အော်ဒီယိုမဆို ပေးပို့လိုက်ပါ။\n"
         "💡 သင့် Blog/Website ၏ Download Button သို့မဟုတ် ဗီဒီယို Player တွင် တိုက်ရိုက်ထည့်သွင်းအသုံးပြုနိုင်မယ့် **Direct Link** ကို ချက်ချင်း ထုတ်ပေးသွားမှာ ဖြစ်ပါတယ်ခင်ဗျာ။",
         reply_to_message_id=message.id
     )
 
-# (ခ) ဖိုင်များ ရောက်လာပါက လင့်ခ်ပြောင်းပေးမည့်စနစ်
 @bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo))
 async def handle_incoming_file(client: Client, message: Message):
     try:
@@ -70,13 +67,17 @@ async def handle_incoming_file(client: Client, message: Message):
             disable_web_page_preview=True
         )
     except Exception as e:
-        await message.reply_text(f"❌ Error occurred: {str(e)}\n\n💡 အကြံပြုချက်: Bot အား မိမိ၏ Log Channel ထဲတွင် 'Admin' ခန့်ထားပြီး Message ပို့ခွင့် (Publish Power) ပေးထားရပါမည်။")
+        await message.reply_text(
+            f"❌ **Error occurred:** {str(e)}\n\n"
+            f"💡 **အကြံပြုချက်:**\n"
+            f"၁။ Bot အား ခင်ဗျား၏ Private Channel ထဲတွင် **Admin** အဖြစ် သေချာခန့်ထားရပါမည်။\n"
+            f"၂။ Admin Role ပေးသည့်အခါ **Post Messages (စာပို့ခွင့်)** ပါဝါကို သေချာ အမှန်ခြစ် ပေးထားရပါမည်ဗျာ။"
+        )
 
-# (ဂ) ရိုးရိုးစာသား (Text) ပို့လာပါက လမ်းညွှန်ပေးမည့်စနစ်
 @bot.on_message(filters.private & filters.text)
 async def text_guide(client: Client, message: Message):
     await message.reply_text(
-        "ℹ nighttime **စာသား (Text) များကို လင့်ခ်ပြောင်းပေး၍ မရပါခင်ဗျာ။**\n\n"
+        "ℹ️ **စာသား (Text) များကို လင့်ခ်ပြောင်းပေး၍ မရပါခင်ဗျာ။**\n\n"
         "ဒေါင်းလုဒ်လင့်ခ် ထုတ်ယူလိုသော ဖိုင် (Document)၊ ဗီဒီယို (Video) သို့မဟုတ် ဓာတ်ပုံ (Photo) များကိုသာ ပူးတွဲ (Attachment) အနေဖြင့် ပေးပို့ပေးပါဗျာ။"
     )
 
@@ -130,6 +131,16 @@ async def main():
     try:
         await bot.start()
         print("✅ Telegram Bot Connected Successfully!")
+        
+        # 🌟 PEER ID INVALID FIX: ဆာဗာစတင်ပတ်သည်နှင့် Channel ID ကို အတင်းဆွဲယူပြီး Cache သွင်းခိုင်းသည့်စနစ် 🌟
+        print(f"🔄 Fetching and Caching Log Channel (ID: {BIN_CHANNEL})...")
+        try:
+            chat = await bot.get_chat(BIN_CHANNEL)
+            print(f"✅ Peer Cached Successfully! Linked to Channel: '{chat.title}'")
+        except Exception as peer_err:
+            print(f"❌ PEER CACHE CRITICAL ERROR: {peer_err}")
+            print("💡 ရာနှုန်းပြည့် သေချာသွားပါပြီ - ဤ Error ပြနေပါက Render Environment Variable ထဲက BIN_CHANNEL ID အမှားကြီး ဖြစ်နေလို့ပါ သို့မဟုတ် Bot က အဲဒီ Channel ထဲမှာ Admin မဖြစ်သေးလို့ပါ။")
+            
     except Exception as e:
         print(f"❌ TELEGRAM CONNECTION FAILED: {e}")
         sys.exit(1)
@@ -146,5 +157,4 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    # စောစောက ဆောက်ခဲ့သော loop ကြီးဖြင့်သာ အသေသတ်၍ ပတ်ခိုင်းလိုက်ပါသည်
     loop.run_until_complete(main())
