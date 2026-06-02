@@ -27,13 +27,14 @@ except ValueError as e:
 API_HASH = os.environ.get("API_HASH", "")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 APP_URL = os.environ.get("APP_URL", "")
+INVITE_LINK = os.environ.get("INVITE_LINK", "") # 🌟 အသစ်ထည့်သွင်းထားသော ဖိတ်ခေါ်စာလင့်ခ်
 PORT = int(os.environ.get("PORT", "8080"))
 
-if not API_ID or not API_HASH or not BOT_TOKEN or not BIN_CHANNEL:
-    print("❌ CRITICAL ERROR: Environment Variables မပြည့်စုံပါ။")
+if not API_ID or not API_HASH or not BOT_TOKEN or not BIN_CHANNEL or not INVITE_LINK:
+    print("❌ CRITICAL ERROR: Environment Variables (INVITE_LINK အပါအဝင်) မပြည့်စုံပါ။")
     sys.exit(1)
 
-# 🌟 RENDER RESTART FIX: in_memory=True ကို သုံးထားသဖြင့် ဆာဗာ Restart ဖြစ်လျှင် ဆက်ရှင်ငြိသည့် ပြဿနာ လုံးဝ မရှိတော့ပါ။
+# Memory ပေါ်တွင် အန္တရာယ်ကင်းစွာ ပတ်မည့်စနစ်
 bot = Client("KMTStreamBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, in_memory=True)
 routes = web.RouteTableDef()
 
@@ -45,8 +46,8 @@ routes = web.RouteTableDef()
 async def start_command(client: Client, message: Message):
     await message.reply_text(
         "👋 **KYAW MIN TUN - File Stream Bot မှ ကြိုဆိုပါတယ်ဗျာ။**\n\n"
-        "📁 ကျွန်တော့်ထံသို့ မည်သည့် ဖိုင်၊ ဓာတ်ပုံ၊ ဗီဒီယို သို့မဟုတ် အော်ဒီယိုမဆို ပေးပို့လိုက်ပါ။\n"
-        "💡 သင့် Blog/Website ၏ Download Button သို့မဟုတ် ဗီဒီယို Player တွင် တိုက်ရိုက်ထည့်သွင်းအသုံးပြုနိုင်မယ့် **Direct Link** ကို ချက်ချင်း ထုတ်ပေးသွားမှာ ဖြစ်ပါတယ်ခင်ဗျာ။",
+        "📁 ကျွန်တော့်ထံသို့ မည်သည့် ဖိုင်၊ ဓာတ်ပုံ၊ ဗီဒီယို သို့မဟုတ် အော်ဒီယိုမဆို ပေပို့လိုက်ပါ။\n"
+        "💡 သင့် Blog/Website ၏ Download Button တွင် တိုက်ရိုက်ထည့်သွင်းအသုံးပြုနိုင်မယ့် **Direct Link** ကို ချက်ချင်း ထုတ်ပေးသွားမှာ ဖြစ်ပါတယ်ခင်ဗျာ‌။",
         reply_to_message_id=message.id
     )
 
@@ -69,16 +70,14 @@ async def handle_incoming_file(client: Client, message: Message):
     except Exception as e:
         await message.reply_text(
             f"❌ **Error occurred:** {str(e)}\n\n"
-            f"💡 **အကြံပြုချက်:**\n"
-            f"၁။ Bot အား ခင်ဗျား၏ Private Channel ထဲတွင် **Admin** အဖြစ် သေချာခန့်ထားရပါမည်။\n"
-            f"၂။ Admin Role ပေးသည့်အခါ **Post Messages (စာပို့ခွင့်)** ပါဝါကို သေချာ အမှန်ခြစ် ပေးထားရပါမည်ဗျာ။"
+            f"💡 **အကြံပြုချက်:** ဆာဗာ အရေးပေါ်ဖြစ်သွားပါက Bot အား /start တစ်ချက် ပြန်နှိပ်ပေးပါ။"
         )
 
 @bot.on_message(filters.private & filters.text)
 async def text_guide(client: Client, message: Message):
     await message.reply_text(
         "ℹ️ **စာသား (Text) များကို လင့်ခ်ပြောင်းပေး၍ မရပါခင်ဗျာ။**\n\n"
-        "ဒေါင်းလုဒ်လင့်ခ် ထုတ်ယူလိုသော ဖိုင် (Document)၊ ဗီဒီယို (Video) သို့မဟုတ် ဓာတ်ပုံ (Photo) များကိုသာ ပူးတွဲ (Attachment) အနေဖြင့် ပေးပို့ပေးပါဗျာ။"
+        "ဒေါင်းလုဒ်လင့်ခ် ထုတ်ယူလိုသော ဖိုင်၊ ဗီဒီယို သို့မဟုတ် ဓာတ်ပုံများကိုသာ ပေးပို့ပေးပါဗျာ။"
     )
 
 # ==========================================================================
@@ -132,14 +131,17 @@ async def main():
         await bot.start()
         print("✅ Telegram Bot Connected Successfully!")
         
-        # 🌟 PEER ID INVALID FIX: ဆာဗာစတင်ပတ်သည်နှင့် Channel ID ကို အတင်းဆွဲယူပြီး Cache သွင်းခိုင်းသည့်စနစ် 🌟
-        print(f"🔄 Fetching and Caching Log Channel (ID: {BIN_CHANNEL})...")
+        # 🌟 [PEER ID INVALID SOLVED] Invite Link ကိုသုံးပြီး Channel Entity Cache ကို အတင်းဆွဲသွင်းသည့်စနစ် 🌟
+        print("🔄 Resolving and Hydrating Channel Peer Cache via Invite Link...")
         try:
-            chat = await bot.get_chat(BIN_CHANNEL)
-            print(f"✅ Peer Cached Successfully! Linked to Channel: '{chat.title}'")
-        except Exception as peer_err:
-            print(f"❌ PEER CACHE CRITICAL ERROR: {peer_err}")
-            print("💡 ရာနှုန်းပြည့် သေချာသွားပါပြီ - ဤ Error ပြနေပါက Render Environment Variable ထဲက BIN_CHANNEL ID အမှားကြီး ဖြစ်နေလို့ပါ သို့မဟုတ် Bot က အဲဒီ Channel ထဲမှာ Admin မဖြစ်သေးလို့ပါ။")
+            # Already Member/Admin ဖြစ်နေသော်လည်း get_chat သို့မဟုတ် join_chat သုံးပြီး ကုဒ်ကို မှတ်ခိုင်းခြင်း
+            chat = await bot.join_chat(INVITE_LINK)
+            print(f"✅ Peer Cache Hydrated Perfectly! Linked to: '{chat.title}' (ID: {chat.id})")
+        except Exception as join_err:
+            # ကုတ်ငြိခဲ့လျှင် ဒုတိယနည်းလမ်းဖြင့် ထပ်မံအတင်းမှတ်ခိုင်းခြင်း
+            print(f"⚠️ Primary hydration failed, trying backup: {join_err}")
+            chat = await bot.get_chat(INVITE_LINK)
+            print(f"✅ Backup Peer Cache Success! Linked to: '{chat.title}'")
             
     except Exception as e:
         print(f"❌ TELEGRAM CONNECTION FAILED: {e}")
