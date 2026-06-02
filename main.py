@@ -5,13 +5,14 @@ import mimetypes
 import asyncio
 
 # ==========================================================================
-# 🌟 PYTHON 3.12+ / 3.14 EVENT LOOP IMPORT BUG FIX
+# 🌟 PERFECT EVENT LOOP FIX FOR PYTHON 3.12 / 3.14 🌟
+# ဆာဗာရော Bot ရော အလုပ်လုပ်မည့် Loop တစ်ခုတည်းကိုသာ အသေသတ် ဆောက်ပါမည်။
+# asyncio.run() ကို လုံးဝမသုံးဘဲ ဤ Loop တစ်ခုတည်းဖြင့်သာ ပတ်ခိုင်းပါမည်။
 # ==========================================================================
-try:
-    asyncio.get_event_loop()
-except RuntimeError:
-    asyncio.set_event_loop(asyncio.new_event_loop())
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
+# ယခုအခါ ပြဿနာအားလုံး ကင်းစင်သွားသဖြင့် Pyrogram ကို စိတ်ချစွာ Import ပါမည်
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from aiohttp import web
@@ -35,11 +36,12 @@ if not API_ID or not API_HASH or not BOT_TOKEN or not BIN_CHANNEL:
     print("❌ CRITICAL ERROR: Environment Variables မပြည့်စုံပါ။")
     sys.exit(1)
 
+# Bot Client ကို အထက်ပါ Loop နှင့် တိုက်ရိုက် ချိတ်ဆက်တည်ဆောက်ခြင်း
 bot = Client("KMTStreamBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 routes = web.RouteTableDef()
 
 # ==========================================================================
-# ၁။ TELEGRAM BOT LOGIC (အသစ်ထပ်မံဖြည့်စွက်ထားသောအပိုင်းများ)
+# ၁။ TELEGRAM BOT LOGIC
 # ==========================================================================
 
 # (က) /start ခလုတ်နှိပ်ပါက တုံ့ပြန်မည့်စနစ်
@@ -52,11 +54,10 @@ async def start_command(client: Client, message: Message):
         reply_to_message_id=message.id
     )
 
-# (ခ) ဖိုင်များ ရောက်လာပါက လင့်ခ်ပြောင်းပေးမည့် မူရင်းစနစ်
+# (ခ) ဖိုင်များ ရောက်လာပါက လင့်ခ်ပြောင်းပေးမည့်စနစ်
 @bot.on_message(filters.private & (filters.document | filters.video | filters.audio | filters.photo))
 async def handle_incoming_file(client: Client, message: Message):
     try:
-        # လင့်ခ်မထုတ်ပေးမီ ခဏစောင့်ရန်ပြောခြင်း
         reply_msg = await message.reply_text("🔄 Processing file... Please wait...", reply_to_message_id=message.id)
         
         # Log Channel သို့ Forward လှမ်းလုပ်မည်
@@ -131,6 +132,11 @@ async def main():
     try:
         await bot.start()
         print("✅ Telegram Bot Connected Successfully!")
+        
+        # 🌟 Webhook အဟောင်းများ ငြိနေပါက ရှင်းလင်းပစ်မည့် စနစ် (Conflict ရှင်းလင်းရေး)
+        await bot.delete_webhook()
+        print("🗑️ Old Webhooks deleted. Switched to Polling mode successfully.")
+        
     except Exception as e:
         print(f"❌ TELEGRAM CONNECTION FAILED: {e}")
         sys.exit(1)
@@ -147,4 +153,5 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run() အစား စောစောက ဆောက်ခဲ့သော loop ကြီးဖြင့်သာ အသေသတ်၍ ပတ်ခိုင်းလိုက်ပါသည်
+    loop.run_until_complete(main())
