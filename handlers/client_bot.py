@@ -6,12 +6,13 @@ from bson.objectid import ObjectId
 from core.database import db
 from handlers.client_admin import admin_kb
 from utils.states import UserBooking
+from datetime import datetime
 
 client_router = Router()
 
 @client_router.message(CommandStart())
 async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
-    await state.clear() # မည်သည့်အခြေအနေမဆို သန့်ရှင်းရေးလုပ်မည်
+    await state.clear() 
     
     business = await db.businesses.find_one({"bot_token": bot.token})
     if not business:
@@ -19,14 +20,22 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
 
     owner_id = business.get("owner_id")
 
-    # လုပ်ငန်းရှင် (Owner) လာနှိပ်ပါက
+    # 💥 NEW: (၁) လ သက်တမ်း ကုန်/မကုန် စစ်ဆေးခြင်း
+    expires_at = business.get("expires_at")
+    if expires_at and datetime.utcnow() > expires_at:
+        # သက်တမ်းကုန်နေလျှင်
+        if message.from_user.id == owner_id:
+            await message.answer("⚠️ **လူကြီးမင်း၏ Bot အသုံးပြုခွင့် (၁) လ (Free Trial) သက်တမ်း ကုန်ဆုံးသွားပါပြီ။**\n\nဆက်လက်အသုံးပြုလိုပါက System Admin ထံ ဆက်သွယ်၍ သက်တမ်းတိုးပါ။")
+        else:
+            await message.answer("⚠️ **ဤ Bot သည် လက်ရှိတွင် ဝန်ဆောင်မှု ယာယီရပ်နားထားပါသည်။**")
+        return # 💥 ဤနေရာတွင် ရပ်ပစ်လိုက်မည်ဖြစ်၍ အောက်မှ ခလုတ်များ လုံးဝပေါ်လာတော့မည် မဟုတ်ပါ
+
+    # သက်တမ်း မကုန်သေးလျှင် ပုံမှန်အတိုင်း အလုပ်လုပ်မည်
     if message.from_user.id == owner_id:
         text = "🛠 **လုပ်ငန်းရှင် Admin Panel** မှ ကြိုဆိုပါတယ်။\n\nလိုအပ်သော လုပ်ဆောင်ချက်ကို အောက်ပါခလုတ်များမှ ရွေးချယ်ပါ။"
         await message.answer(text, reply_markup=admin_kb(), parse_mode="Markdown")
         
-    # သာမန် ဝယ်ယူသူ (Customer) လာနှိပ်ပါက
     else:
-        # လက်ရှိ Bot ၏ Active ဖြစ်နေသော Services များကို ရှာမည်
         cursor = db.services.find({"bot_token": bot.token, "status": "active"})
         services = await cursor.to_list(length=100)
         
