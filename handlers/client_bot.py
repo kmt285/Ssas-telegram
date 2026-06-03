@@ -257,21 +257,37 @@ async def process_recovery_key(message: Message, state: FSMContext, bot: Bot):
     new_random_str = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
     new_backup_key = f"BKP-{new_random_str}"
     
+    keyboard = [] # 💥 NEW: Group ဝင်ရန် ခလုတ်များ စုဆောင်းရန်
+
     for sub in subs:
         old_user_id = sub["user_id"]
         service_id = sub["service_id"]
 
-        # 💥 NEW: အကောင့်ဟောင်းအား သက်ဆိုင်ရာ Group များမှ အလိုအလျောက် ကန်ထုတ်ခြင်း 💥
         service = await db.services.find_one({"_id": ObjectId(service_id)})
         if service:
             chat_id = service.get("link")
-            # Group ID အမှန်ဖြစ်မှသာ Kick လုပ်မည်
             if chat_id and (chat_id.startswith("-100") or chat_id.startswith("@")):
+                # (၁) အကောင့်ဟောင်းအား အလိုအလျောက် ကန်ထုတ်ခြင်း
                 try:
                     await bot.ban_chat_member(chat_id=chat_id, user_id=old_user_id)
                     await bot.unban_chat_member(chat_id=chat_id, user_id=old_user_id)
                 except Exception as e:
                     print(f"Failed to kick old user {old_user_id}: {e}")
+                
+                # 💥 (၂) NEW: အကောင့်သစ်အတွက် ဝင်ခွင့် Link အသစ် ချက်ချင်း ထုတ်ပေးခြင်း
+                try:
+                    link_obj = await bot.create_chat_invite_link(
+                        chat_id=chat_id, 
+                        creates_join_request=True, 
+                        name=f"Recovered ID: {message.from_user.id}"
+                    )
+                    keyboard.append([InlineKeyboardButton(text=f"🚀 Join {service['name']}", url=link_obj.invite_link)])
+                except Exception as e:
+                    print(f"Error creating recovery link: {e}")
+            else:
+                # Group ID မဟုတ်ဘဲ ရိုးရိုး Link အသေ ဖြစ်နေပါက
+                if chat_id:
+                    keyboard.append([InlineKeyboardButton(text=f"🚀 Join {service['name']}", url=chat_id)])
 
         # ထို့နောက် Database တွင် အကောင့်သစ်၏ အချက်အလက်များဖြင့် အစားထိုး Update လုပ်မည်
         await db.subscriptions.update_one(
@@ -288,7 +304,10 @@ async def process_recovery_key(message: Message, state: FSMContext, bot: Bot):
         "✅ **အကောင့်ပြန်လည်ရယူခြင်း အောင်မြင်ပါသည်။**\n\n"
         "ယခင်အကောင့်ရှိ ဝန်ဆောင်မှုများကို ဤအကောင့်သစ်သို့ အောင်မြင်စွာ လွှဲပြောင်းပေးလိုက်ပါပြီ။ \n"
         "*(လုံခြုံရေးအရ သင်၏ ယခင်အကောင့်ဟောင်းအား Group များမှ အလိုအလျောက် ဖယ်ရှားလိုက်ပါပြီ)*\n\n"
-        "ဝန်ဆောင်မှုများကို ဆက်လက်အသုံးပြုရန် /start ကို ပြန်နှိပ်ပါ။"
+        "👇 **အောက်ပါခလုတ်များကို နှိပ်၍ သက်ဆိုင်ရာ Group / Channel များသို့ ပြန်လည်ဝင်ရောက်နိုင်ပါပြီ။**"
     )
-    await message.answer(success_text, parse_mode="Markdown")
+    
+    reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard) if keyboard else None
+    
+    await message.answer(success_text, reply_markup=reply_markup, parse_mode="Markdown")
     await state.clear()
