@@ -57,10 +57,15 @@ async def buy_service_callback(callback: CallbackQuery, state: FSMContext, bot: 
         
     payment_info = business.get("payment_info", "ငွေပေးချေမှုအချက်အလက် မရှိသေးပါ။ Admin ကို ဆက်သွယ်ပါ။")
     
+    # 💥 NEW: သက်တမ်းကို တွက်ချက်ပြီး စာသားလှလှလေး ဖန်တီးခြင်း
+    duration_val = service.get("duration", 0)
+    duration_text = "Lifetime (တစ်သက်လုံး)" if duration_val == 0 else f"{duration_val} ရက်"
+    
     text = (
         f"💳 **'{service['name']}' ကို ဝယ်ယူရန် ငွေလွှဲရမည့် အချက်အလက်**\n\n"
         f"{payment_info}\n\n"
-        f"💵 **ကျသင့်ငွေ:** {service['price']} ကျပ်\n\n"
+        f"💵 **ကျသင့်ငွေ:** {service['price']} ကျပ်\n"
+        f"⏳ **သက်တမ်း:** {duration_text}\n\n" # 💥 ဤနေရာတွင် သက်တမ်းကို ထည့်သွင်းပြသပါမည်
         "⚠️ **အရေးကြီးသည်:** ငွေလွှဲပြီးပါက ငွေလွှဲပြေစာ (Slip Screenshot) ကို ဤနေရာသို့ ဓာတ်ပုံ (Photo) အဖြစ် ပို့ပေးပါ။"
     )
     
