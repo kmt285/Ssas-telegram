@@ -18,6 +18,11 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
     if not business:
         return
 
+    # 💥 NEW: Super Admin မှ ယာယီရပ်ဆိုင်းထားခြင်း ရှိ/မရှိ စစ်ဆေးခြင်း
+    if business.get("status") == "suspended":
+        await message.answer("🚫 **ဤ Bot အား Super Admin မှ ယာယီရပ်ဆိုင်း (Suspend) ထားပါသည်။**\n\nအသေးစိတ်သိရှိလိုပါက Platform Admin ထံ ဆက်သွယ်ပါ။")
+        return
+
     owner_id = business.get("owner_id")
 
     # 💥 NEW: (၁) လ သက်တမ်း ကုန်/မကုန် စစ်ဆေးခြင်း
