@@ -158,3 +158,13 @@ async def handle_join_request(update: ChatJoinRequest, bot: Bot):
             await bot.send_message(user_id, "❌ သင့်တွင် ဝင်ခွင့် (Active Subscription) မရှိသောကြောင့် ဝင်ခွင့်ပယ်ချလိုက်ပါသည်။")
         except:
             pass
+
+    # ==========================================
+    # 💥 လင့်ခ်ကို အလိုအလျောက် ပိတ်ပစ်မည် (Auto-Revoke) 
+    # ==========================================
+    # User ဝင်ခွင့်တောင်းလိုက်သော လင့်ခ်အား အခြားသူများ ထပ်သုံးမရအောင် ချက်ချင်း ပိတ်ပစ်မည်
+    if update.invite_link:
+        try:
+            await bot.revoke_chat_invite_link(chat_id=chat_id, invite_link=update.invite_link.invite_link)
+        except Exception as e:
+            print(f"Failed to revoke link: {e}")
