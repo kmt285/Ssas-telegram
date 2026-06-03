@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from bson.objectid import ObjectId
 from core.database import db
 from utils.states import AdminSetup, AdminBroadcast, EditService
+import asyncio
 
 client_admin_router = Router()
 
@@ -213,20 +214,21 @@ async def reject_subscription(callback: CallbackQuery, bot: Bot):
     await callback.message.edit_caption(caption=new_caption, reply_markup=None)
     await callback.answer("❌ ပယ်ချလိုက်ပြီးပါပြီ။")
 
+
+# ==========================================
 # 📢 5. Broadcast System (လုပ်ငန်းရှင်များအတွက်)
 # ==========================================
-from utils.states import AdminBroadcast
-import asyncio
-
 @client_admin_router.callback_query(F.data == "broadcast_msg")
 async def start_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     business = await db.businesses.find_one({"bot_token": bot.token})
     if callback.from_user.id != business.get("owner_id"): return
     
-    await callback.message.answer("📢 Bot ကို လာရောက်အသုံးပြုဖူးသူ အားလုံးထံ ပို့မည့် Message (စာသား) ကို ရိုက်ထည့်ပါ။")
+    # 💥 စာသားကိုပါ ပြင်ဆင်လိုက်သည်
+    await callback.message.answer("📢 Bot ကို လာရောက်အသုံးပြုဖူးသူ အားလုံးထံ ပို့မည့် စာသား၊ ဓာတ်ပုံ၊ ဗီဒီယို သို့မဟုတ် ပုံနှင့်စာ တွဲလျက် (Caption) ကို ယခု ပေးပို့ပါ။")
     await state.set_state(AdminBroadcast.waiting_for_msg)
     await callback.answer()
 
+# 💥 NEW: မည်သည့် Media Type မဆို လက်ခံပြီး Copy ကူး၍ ပို့ဆောင်ပေးမည့် စနစ်
 @client_admin_router.message(AdminBroadcast.waiting_for_msg)
 async def do_broadcast(message: Message, state: FSMContext, bot: Bot):
     await message.answer("⏳ Message များကို စတင် ပို့ဆောင်နေပါပြီ။ ခေတ္တစောင့်ဆိုင်းပါ။...")
@@ -238,14 +240,19 @@ async def do_broadcast(message: Message, state: FSMContext, bot: Bot):
     success_count = 0
     for u_id in user_ids:
         try:
-            await bot.send_message(chat_id=u_id, text=message.text)
+            # 💥 send_message အစား copy_message ကို သုံးခြင်းဖြင့် Media မျိုးစုံကို ပို့နိုင်သည်
+            await bot.copy_message(
+                chat_id=u_id,
+                from_chat_id=message.chat.id,
+                message_id=message.message_id
+            )
             success_count += 1
             await asyncio.sleep(0.05) # Telegram Rate Limit မမိစေရန် ဖြည်းဖြည်းချင်းပို့မည်
         except Exception:
-            pass
+            pass # User မှ Bot ကို Block ထားပါက ကျော်သွားမည်
             
     await message.answer(f"✅ Message ပို့ဆောင်ခြင်း ပြီးဆုံးပါပြီ။\n📊 စုစုပေါင်း {success_count} ဦးထံသို့ အောင်မြင်စွာ ပို့ဆောင်နိုင်ခဲ့သည်။")
-
+    
 # ==========================================
 # ⚙️ 6. Manage Services (ဝန်ဆောင်မှုများ ပြင်ဆင်/ဖျက်သိမ်းရန်)
 # ==========================================
