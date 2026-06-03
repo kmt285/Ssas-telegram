@@ -12,3 +12,6 @@ class UserBooking(StatesGroup):
 
 class AdminBroadcast(StatesGroup):
     waiting_for_msg = State()
+class EditService(StatesGroup):
+    waiting_for_new_name = State()
+    waiting_for_new_price = State()
