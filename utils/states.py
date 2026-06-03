@@ -11,4 +11,4 @@ class UserBooking(StatesGroup):
     waiting_for_slip = State()
 
 class AdminBroadcast(StatesGroup):
-    waiting_for_msg = State()ေ
+    waiting_for_msg = State()
