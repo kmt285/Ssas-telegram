@@ -5,6 +5,8 @@ from aiohttp import web
 from core.config import MASTER_BOT_TOKEN, PORT
 from core.bot_manager import start_all_client_bots
 from handlers.master_admin import master_router
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from utils.scheduler import check_expired_subscriptions
 
 logging.basicConfig(level=logging.INFO)
 
@@ -23,10 +25,8 @@ async def web_server():
 
 # Main Function (Bot များနှင့် Web Server တွဲ Run မည်)
 async def main():
-    # ၁။ Web server စတင်ခြင်း
     asyncio.create_task(web_server())
     
-    # ၂။ Master Bot Setup လုပ်ပြီး Run ခြင်း
     master_bot = Bot(token=MASTER_BOT_TOKEN)
     master_dp = Dispatcher()
     master_dp.include_router(master_router)
@@ -34,11 +34,16 @@ async def main():
     logging.info("👑 Starting Master Bot...")
     asyncio.create_task(master_dp.start_polling(master_bot))
     
-    # ၃။ Database ထဲရှိ လုပ်ငန်းရှင် Client Bots များအားလုံးကို Run ခြင်း
     logging.info("🔄 Starting all Client Bots from Database...")
     await start_all_client_bots()
     
-    # System ကို မပိတ်သွားစေရန် ဆက်တိုက် Run ထားပေးခြင်း
+    # 💥 NEW: Auto-Kick Scheduler ကို စတင်ခြင်း 💥
+    scheduler = AsyncIOScheduler()
+    # ဤနေရာတွင် ၁ နာရီတစ်ခါ စစ်ဆေးရန် သတ်မှတ်ထားသည် (စမ်းသပ်လိုပါက hours=1 အစား minutes=1 ဟု ပြင်နိုင်သည်)
+    scheduler.add_job(check_expired_subscriptions, "interval", hours=1) 
+    scheduler.start()
+    logging.info("⏱ Scheduler started for auto-kick system.")
+    
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
