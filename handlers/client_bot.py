@@ -1,5 +1,5 @@
 from aiogram import Router, Bot, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ChatJoinRequest
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from bson.objectid import ObjectId
@@ -120,3 +120,41 @@ async def receive_slip_photo(message: Message, state: FSMContext, bot: Bot):
         await bot.send_photo(chat_id=owner_id, photo=photo_id, caption=admin_text, reply_markup=admin_keyboard, parse_mode="Markdown")
     except Exception as e:
         print(f"Failed to send slip to admin: {e}")
+
+# ==========================================
+# 💥 NEW: Request to Join တောင်းလာသူများကို စစ်ဆေးခြင်း
+# ==========================================
+@client_router.chat_join_request()
+async def handle_join_request(update: ChatJoinRequest, bot: Bot):
+    user_id = update.from_user.id
+    chat_id = str(update.chat.id) # ဝင်ခွင့်တောင်းသော Group ၏ ID
+
+    # ထို User တွင် လက်ရှိ Bot ၌ Active ဖြစ်နေသော Subscription များရှိမရှိ ရှာမည်
+    cursor = db.subscriptions.find({
+        "user_id": user_id, 
+        "bot_token": bot.token, 
+        "status": "active"
+    })
+    subs = await cursor.to_list(length=100)
+
+    is_allowed = False
+    for sub in subs:
+        # User ဝယ်ထားသော Service ထဲက Link(Chat ID) နှင့် ဝင်ခွင့်တောင်းသော Chat ID တူမတူ စစ်ဆေးမည်
+        service = await db.services.find_one({"_id": ObjectId(sub["service_id"])})
+        if service and service.get("link") == chat_id:
+            is_allowed = True
+            break
+
+    # သေချာစွာ စစ်ဆေးပြီးနောက်
+    if is_allowed:
+        await update.approve() # မှန်ကန်သော ဝယ်ယူသူဖြစ်၍ အလိုအလျောက် လက်ခံပေးမည်
+        try:
+            await bot.send_message(user_id, "✅ Group/Channel သို့ ဝင်ခွင့်ပြုလိုက်ပါပြီ။")
+        except:
+            pass
+    else:
+        await update.decline() # မသက်ဆိုင်သူ ဖြစ်၍ အလိုအလျောက် ပယ်ချမည်
+        try:
+            await bot.send_message(user_id, "❌ သင့်တွင် ဝင်ခွင့် (Active Subscription) မရှိသောကြောင့် ဝင်ခွင့်ပယ်ချလိုက်ပါသည်။")
+        except:
+            pass
