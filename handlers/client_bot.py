@@ -20,13 +20,13 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
     if not business:
         return
 
-    # 💥 NEW: Super Admin မှ ယာယီရပ်ဆိုင်းထားခြင်း ရှိ/မရှိ စစ်ဆေးခြင်း
+    # Super Admin မှ ယာယီရပ်ဆိုင်းထားခြင်း ရှိ/မရှိ စစ်ဆေးခြင်း
     if business.get("status") == "suspended":
         await message.answer("🚫 **ဤ Bot အား Super Admin မှ ယာယီရပ်ဆိုင်း (Suspend) ထားပါသည်။**\n\nအသေးစိတ်သိရှိလိုပါက Platform Admin ထံ ဆက်သွယ်ပါ။")
         return
 
-owner_id = business.get("owner_id")
-    sub_admins = business.get("sub_admins", []) 
+    owner_id = business.get("owner_id")
+    sub_admins = business.get("sub_admins", [])
     
     user_id = message.from_user.id
     is_owner = (user_id == owner_id)
@@ -49,7 +49,7 @@ owner_id = business.get("owner_id")
         await message.answer(text, reply_markup=admin_kb(is_owner=is_owner), parse_mode="Markdown")
         
     else:
-
+        # လက်ရှိ User မှာ Active ဖြစ်နေသော ဝန်ဆောင်မှု ရှိ/မရှိ စစ်ဆေးခြင်း
         active_subs = await db.subscriptions.find({"bot_token": bot.token, "user_id": message.from_user.id, "status": "active"}).to_list(length=10)
         
         cursor = db.services.find({"bot_token": bot.token, "status": "active"})
@@ -65,7 +65,6 @@ owner_id = business.get("owner_id")
         else:
             text += "လောလောဆယ် ဝယ်ယူနိုင်သော ဝန်ဆောင်မှုများ မရှိသေးပါ။\n"
             
-        # 💥 NEW: Recovery/Backup ခလုတ်များ ခွဲခြားပြသခြင်း
         if active_subs:
             keyboard.append([InlineKeyboardButton(text="🔑 Backup Key (အကောင့်ပျက်လျှင် ပြန်ယူရန်)", callback_data="get_backup_key")])
         else:
