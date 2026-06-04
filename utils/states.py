@@ -7,6 +7,8 @@ class AdminSetup(StatesGroup):
     waiting_for_service_duration = State()
     waiting_for_service_note = State()
     waiting_for_service_link = State()
+    waiting_for_sub_admin_id = State()
+    waiting_for_remove_admin_id = State()
 
 class UserBooking(StatesGroup):
     waiting_for_slip = State()
