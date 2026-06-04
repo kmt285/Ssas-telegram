@@ -55,7 +55,10 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
         cursor = db.services.find({"bot_token": bot.token, "status": "active"})
         services = await cursor.to_list(length=100)
         
-        text = "🌟 **ကျွန်ုပ်တို့၏ VIP ဝန်ဆောင်မှုမှ ကြိုဆိုပါတယ်။** 🌟\n\n"
+        # 💥 NEW: Database မှ Custom Welcome Message ကို ဆွဲထုတ်ခြင်း (မရှိပါက Default စာသားပြမည်)
+        welcome_msg = business.get("welcome_msg", "🌟 **ကျွန်ုပ်တို့၏ VIP ဝန်ဆောင်မှုမှ ကြိုဆိုပါတယ်။** 🌟")
+        text = f"{welcome_msg}\n\n"
+        
         keyboard = []
         
         if services:
