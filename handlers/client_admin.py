@@ -12,13 +12,18 @@ client_admin_router = Router()
 # ==========================================
 # 🛠 1. Admin Menu Keyboard
 # ==========================================
-def admin_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[
+def admin_kb(is_owner=False):
+    kb = [
         [InlineKeyboardButton(text="💳 ငွေပေးချေမှု အကောင့်ထည့်ရန်", callback_data="set_payment")],
         [InlineKeyboardButton(text="➕ Service အသစ်ထည့်ရန်", callback_data="add_service")],
         [InlineKeyboardButton(text="⚙️ ဝန်ဆောင်မှုများ ပြင်/ဖျက်ရန်", callback_data="manage_services")],
         [InlineKeyboardButton(text="📢 အသုံးပြုသူများထံ Message ပို့ရန်", callback_data="broadcast_msg")]
-    ])
+    ]
+    # ပိုင်ရှင် (Owner) ဖြစ်မှသာ Sub-Admin ခလုတ်ကို ပြမည်
+    if is_owner:
+        kb.append([InlineKeyboardButton(text="👥 Admin အကူ (Sub-Admin) စီမံရန်", callback_data="manage_sub_admins")])
+        
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 # ==========================================
 # 💳 2. Payment Info Setup (ငွေပေးချေမှု အချက်အလက်)
@@ -27,8 +32,9 @@ def admin_kb():
 async def set_payment_callback(callback: CallbackQuery, state: FSMContext, bot: Bot):
     # လုံခြုံရေး - ပိုင်ရှင် ဟုတ်/မဟုတ် စစ်ဆေးခြင်း
     business = await db.businesses.find_one({"bot_token": bot.token})
-    if callback.from_user.id != business.get("owner_id"):
-        await callback.answer("❌ သင်သည် ဤ Bot ၏ Admin မဟုတ်ပါ။", show_alert=True)
+    owner_id = business.get("owner_id")
+    sub_admins = business.get("sub_admins", [])
+    if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
         return
 
     text = "💳 သင့်၏ ငွေပေးချေမှု အချက်အလက်များကို ရိုက်ထည့်ပါ။\n(ဥပမာ - KPay: 09123456789, Wave: 09987654321)"
@@ -51,8 +57,9 @@ async def receive_payment_info(message: Message, bot: Bot, state: FSMContext):
 @client_admin_router.callback_query(F.data == "add_service")
 async def add_service_callback(callback: CallbackQuery, state: FSMContext, bot: Bot):
     business = await db.businesses.find_one({"bot_token": bot.token})
-    if callback.from_user.id != business.get("owner_id"):
-        await callback.answer("❌ သင်သည် ဤ Bot ၏ Admin မဟုတ်ပါ။", show_alert=True)
+    owner_id = business.get("owner_id")
+    sub_admins = business.get("sub_admins", [])
+    if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
         return
 
     await callback.message.answer("📝 ဝန်ဆောင်မှု (Service) အမည်ကို ရိုက်ထည့်ပါ။\n(ဥပမာ - VIP Trading Signals)")
@@ -221,7 +228,10 @@ async def reject_subscription(callback: CallbackQuery, bot: Bot):
 @client_admin_router.callback_query(F.data == "broadcast_msg")
 async def start_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     business = await db.businesses.find_one({"bot_token": bot.token})
-    if callback.from_user.id != business.get("owner_id"): return
+    owner_id = business.get("owner_id")
+    sub_admins = business.get("sub_admins", [])
+    if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
+        return
     
     # 💥 စာသားကိုပါ ပြင်ဆင်လိုက်သည်
     await callback.message.answer("📢 Bot ကို လာရောက်အသုံးပြုဖူးသူ အားလုံးထံ ပို့မည့် စာသား၊ ဓာတ်ပုံ၊ ဗီဒီယို သို့မဟုတ် ပုံနှင့်စာ တွဲလျက် (Caption) ကို ယခု ပေးပို့ပါ။")
@@ -259,7 +269,10 @@ async def do_broadcast(message: Message, state: FSMContext, bot: Bot):
 @client_admin_router.callback_query(F.data == "manage_services")
 async def manage_services_list(callback: CallbackQuery, bot: Bot):
     business = await db.businesses.find_one({"bot_token": bot.token})
-    if callback.from_user.id != business.get("owner_id"): return
+    owner_id = business.get("owner_id")
+    sub_admins = business.get("sub_admins", [])
+    if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
+        return
 
     # Active ဖြစ်နေသော Service များကိုသာ ဆွဲထုတ်မည်
     services = await db.services.find({"bot_token": bot.token, "status": "active"}).to_list(length=100)
@@ -277,8 +290,10 @@ async def manage_services_list(callback: CallbackQuery, bot: Bot):
     await callback.message.edit_text("⚙️ **ပြင်ဆင်/ဖျက်သိမ်း လိုသော ဝန်ဆောင်မှုကို ရွေးချယ်ပါ။**", reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode="Markdown")
 
 @client_admin_router.callback_query(F.data == "back_to_admin")
-async def back_to_admin_menu(callback: CallbackQuery):
-    await callback.message.edit_text("🛠 **လုပ်ငန်းရှင် Admin Panel** မှ ကြိုဆိုပါတယ်။\n\nလိုအပ်သော လုပ်ဆောင်ချက်ကို အောက်ပါခလုတ်များမှ ရွေးချယ်ပါ။", reply_markup=admin_kb(), parse_mode="Markdown")
+async def back_to_admin_menu(callback: CallbackQuery, bot: Bot):
+    business = await db.businesses.find_one({"bot_token": bot.token})
+    is_owner = (callback.from_user.id == business.get("owner_id"))
+    await callback.message.edit_text("🛠 **လုပ်ငန်းရှင် / Admin Panel** မှ ကြိုဆိုပါတယ်။\n\nလိုအပ်သော လုပ်ဆောင်ချက်ကို အောက်ပါခလုတ်များမှ ရွေးချယ်ပါ။", reply_markup=admin_kb(is_owner=is_owner), parse_mode="Markdown")
 
 @client_admin_router.callback_query(F.data.startswith("service_detail_"))
 async def show_service_detail(callback: CallbackQuery):
