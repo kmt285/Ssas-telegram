@@ -3,9 +3,11 @@ import asyncio
 from datetime import datetime, timedelta
 from aiogram import Router, Bot, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
 from bson.objectid import ObjectId
 from core.database import db
+from utils.states import MasterSetup
 
 master_router = Router()
 
@@ -13,37 +15,59 @@ master_router = Router()
 # 💥 Render Environment Variable မှ Super Admin ID များကို ဆွဲယူခြင်း
 # ==========================================
 admin_ids_str = os.getenv("SUPER_ADMIN_IDS", "")
-# ကော်မာ (,) ဖြင့် ခြားထားသော ID များကို ဂဏန်းစာရင်း (List) အဖြစ် ပြောင်းလဲခြင်း
 SUPER_ADMINS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
 
 @master_router.message(CommandStart())
-async def start_cmd(message: Message):
-    if message.from_user.id not in SUPER_ADMINS: return # 💥 လုံခြုံရေး ပိတ်ပင်ခြင်း
+async def start_cmd(message: Message, state: FSMContext):
+    await state.clear()
     
-    text = "👑 **SaaS Master Super Admin Bot** မှ ကြိုဆိုပါတယ်။\n\n"
-    text += "🛠 **အသုံးပြုနိုင်သော အမိန့်စာများ:**\n"
-    text += "👉 `/addbot <Bot_Token>` - လုပ်ငန်းရှင် Bot အသစ် ထည့်သွင်းရန်\n"
-    text += "👉 `/stats` - စနစ်တစ်ခုလုံး၏ Data နှင့် လုပ်ငန်းရှင်များအား ကြည့်ရှုရန်"
-    await message.answer(text, parse_mode="Markdown")
+    # 👑 Super Admin ဝင်လာလျှင်
+    if message.from_user.id in SUPER_ADMINS:
+        text = "👑 **SaaS Master Super Admin Bot** မှ ကြိုဆိုပါတယ်။\n\n"
+        text += "သင်သည် Super Admin ဖြစ်သောကြောင့် အောက်ပါ ခလုတ်ကိုနှိပ်၍ စနစ်တစ်ခုလုံးကို စီမံနိုင်ပါသည်။"
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📊 စနစ်တစ်ခုလုံး၏ စာရင်းဇယားကြည့်ရန်", callback_data="show_stats")]
+        ])
+        return await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+    
+    # 🏢 သာမန် လုပ်ငန်းရှင် ဝင်လာလျှင်
+    text = "🌟 **SaaS Telegram Bot Platform** မှ ကြိုဆိုပါတယ်။\n\n"
+    text += "လူကြီးမင်း၏ ကိုယ်ပိုင် VIP Subscription Bot ကို (၁) လ အခမဲ့ စတင်အသုံးပြုနိုင်ရန် အောက်ပါခလုတ်ကို နှိပ်ပါ။"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Bot အသစ် ဖန်တီးရန်", callback_data="create_new_bot")]
+    ])
+    await message.answer(text, reply_markup=kb, parse_mode="Markdown")
 
-@master_router.message(Command("addbot"))
-async def add_bot_cmd(message: Message):
-    if message.from_user.id not in SUPER_ADMINS: return 
+# ==========================================
+# 🏢 လုပ်ငန်းရှင်များ Bot Token ထည့်သွင်းခြင်း စနစ်
+# ==========================================
+@master_router.callback_query(F.data == "create_new_bot")
+async def ask_bot_token(callback: CallbackQuery, state: FSMContext):
+    text = "🤖 **Bot Token ထည့်သွင်းပါ**\n\n"
+    text += "1. @BotFather သို့သွား၍ `/newbot` ဖြင့် Bot အသစ်တစ်ခု ဖန်တီးပါ။\n"
+    text += "2. ရရှိလာသော **HTTP API Token** (ဥပမာ `123456:ABC-DEF...`) ကို ဤနေရာတွင် Copy/Paste လုပ်ပါ။"
+    await callback.message.answer(text, parse_mode="Markdown")
+    await state.set_state(MasterSetup.waiting_for_bot_token)
+    await callback.answer()
+
+@master_router.message(MasterSetup.waiting_for_bot_token)
+async def receive_bot_token(message: Message, state: FSMContext):
+    token = message.text.strip()
     
-    args = message.text.split()
-    if len(args) != 2:
-        await message.answer("❌ ပုံစံမှားနေပါသည်။ \nဥပမာ - `/addbot 123456:ABC...`", parse_mode="Markdown")
-        return
-    
-    token = args[1]
+    # Token အကြမ်းဖျင်း မှန်/မမှန် စစ်ဆေးခြင်း
+    if ":" not in token:
+        return await message.answer("❌ Token ပုံစံ မှားယွင်းနေပါသည်။ သေချာစွာ ပြန်လည်စစ်ဆေးပြီး ထပ်မံရိုက်ထည့်ပါ။")
+        
     existing_bot = await db.businesses.find_one({"bot_token": token})
     if existing_bot:
-        await message.answer("⚠️ ဒီ Bot Token က စနစ်ထဲမှာ ထည့်သွင်းပြီးသား ဖြစ်နေပါတယ်။")
-        return
+        return await message.answer("⚠️ ဤ Bot Token မှာ စနစ်ထဲတွင် ထည့်သွင်းပြီးသား ဖြစ်နေပါသည်။")
+
+    await message.answer("⏳ Bot အား စနစ်နှင့် ချိတ်ဆက်နေပါသည်... ခေတ္တစောင့်ဆိုင်းပါ။")
 
     created_date = datetime.utcnow()
     expires_date = created_date + timedelta(days=30)
 
+    # 💥 Database ထဲသို့ Bot အသစ် မှတ်သားခြင်း
     await db.businesses.insert_one({
         "bot_token": token, 
         "status": "active",
@@ -53,17 +77,22 @@ async def add_bot_cmd(message: Message):
         "expires_at": expires_date
     })
     
+    # 💥 Client Bot ကို ချက်ချင်း အသက်သွင်းခြင်း
     from core.bot_manager import start_client_bot 
     asyncio.create_task(start_client_bot(token))
     
-    await message.answer("✅ Client Bot အသစ် အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ။ \n🎁 ဤ Bot အား (၁) လ အခမဲ့ အသုံးပြုခွင့် ပေးထားပါသည်။ သင့် Bot ဆီသွား၍ /start ကိုနှိပ်ပါ။")
+    success_text = "✅ **Client Bot အသစ် အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ။**\n\n"
+    success_text += "🎁 ဤ Bot အား (၁) လ အခမဲ့ အသုံးပြုခွင့် ပေးထားပါသည်။\n"
+    success_text += "👉 ယခု သင့် Bot ဆီသွား၍ `/start` ကိုနှိပ်ပြီး ဝန်ဆောင်မှုများကို စတင် ဖန်တီးနိုင်ပါပြီ။"
+    await message.answer(success_text, parse_mode="Markdown")
+    await state.clear()
 
 # ==========================================
-# 📊 စနစ်တစ်ခုလုံးကို စောင့်ကြည့်မည့် Super Admin Panel
+# 📊 စနစ်တစ်ခုလုံးကို စောင့်ကြည့်မည့် Super Admin Panel (Admin သီးသန့်)
 # ==========================================
-@master_router.message(Command("stats"))
-async def view_system_stats(message: Message):
-    if message.from_user.id not in SUPER_ADMINS: return 
+@master_router.callback_query(F.data == "show_stats")
+async def view_system_stats_cb(callback: CallbackQuery):
+    if callback.from_user.id not in SUPER_ADMINS: return # 💥 လုံခြုံရေး ပိတ်ပင်ခြင်း
     
     total_bots = await db.businesses.count_documents({})
     total_services = await db.services.count_documents({})
@@ -80,7 +109,7 @@ async def view_system_stats(message: Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏢 လုပ်ငန်းရှင်များစာရင်း အသေးစိတ်ကြည့်ရန်", callback_data="view_businesses")]
     ])
-    await message.answer(stats_text, reply_markup=kb, parse_mode="Markdown")
+    await callback.message.edit_text(stats_text, reply_markup=kb, parse_mode="Markdown")
 
 # --- လုပ်ငန်းရှင်များ စာရင်းပြသခြင်း ---
 @master_router.callback_query(F.data == "view_businesses")
@@ -97,6 +126,8 @@ async def list_businesses(callback: CallbackQuery):
     for biz in businesses:
         token_prefix = biz['bot_token'][:10]
         keyboard.append([InlineKeyboardButton(text=f"🤖 Bot: {token_prefix}...", callback_data=f"biz_{str(biz['_id'])}")])
+    
+    keyboard.append([InlineKeyboardButton(text="🔙 နောက်သို့", callback_data="show_stats")])
     
     await callback.message.edit_text(
         "🏢 **လုပ်ငန်းရှင်များ စာရင်း**\n\nအသေးစိတ်ကြည့်လိုသော Bot ကို ရွေးချယ်ပါ-", 
