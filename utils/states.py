@@ -1,13 +1,14 @@
 from aiogram.fsm.state import State, StatesGroup
 
 class AdminSetup(StatesGroup):
+    waiting_for_welcome_msg = State()
     waiting_for_payment_info = State()
     waiting_for_service_name = State()
     waiting_for_service_price = State()
     waiting_for_service_duration = State()
-    waiting_for_service_note = State()
+    waiting_for_service_note = State() 
     waiting_for_service_link = State()
-    waiting_for_sub_admin_id = State()
+    waiting_for_sub_admin_id = State() 
     waiting_for_remove_admin_id = State()
 
 class UserBooking(StatesGroup):
