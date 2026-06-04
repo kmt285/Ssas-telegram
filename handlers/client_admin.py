@@ -389,3 +389,67 @@ async def save_new_note(message: Message, state: FSMContext):
     await db.services.update_one({"_id": ObjectId(service_id)}, {"$set": {"note": message.text}})
     await message.answer("✅ ဝန်ဆောင်မှု မှတ်ချက် (Note) ကို ပြင်ဆင်ပြီးပါပြီ။ Admin Panel သို့ ပြန်သွားရန် /start ကို နှိပ်ပါ။")
     await state.clear()
+
+# ==========================================
+# 👥 7. Manage Sub-Admins (အက်ဒမင်အကူ စီမံခန့်ခွဲခြင်း)
+# ==========================================
+@client_admin_router.callback_query(F.data == "manage_sub_admins")
+async def manage_sub_admins(callback: CallbackQuery, bot: Bot):
+    business = await db.businesses.find_one({"bot_token": bot.token})
+    # ပိုင်ရှင်မှလွဲ၍ ကျန်သူများ ဝင်ခွင့်မရှိပါ
+    if callback.from_user.id != business.get("owner_id"): 
+        return await callback.answer("❌ ပိုင်ရှင် (Owner) သာလျှင် ဝင်ရောက်ခွင့်ရှိသည်။", show_alert=True)
+        
+    sub_admins = business.get("sub_admins", [])
+    
+    text = "👥 **Sub-Admin (အက်ဒမင်အကူ) စာရင်း**\n\n"
+    if not sub_admins:
+        text += "လက်ရှိတွင် Admin အကူ မရှိသေးပါ။"
+    else:
+        for idx, admin_id in enumerate(sub_admins, 1):
+            text += f"{idx}. User ID: `{admin_id}`\n"
+            
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Admin အကူ ထည့်ရန်", callback_data="add_sub_admin")],
+        [InlineKeyboardButton(text="🗑 Admin အကူ ဖယ်ရှားရန်", callback_data="remove_sub_admin")],
+        [InlineKeyboardButton(text="🔙 Admin Menu သို့ ပြန်သွားရန်", callback_data="back_to_admin")]
+    ])
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+
+@client_admin_router.callback_query(F.data == "add_sub_admin")
+async def add_sub_admin_prompt(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("➕ **Admin အကူ အသစ်ထည့်ရန်**\n\nခန့်အပ်လိုသော သူ၏ **Telegram User ID** အား ဂဏန်းအတိုင်း ရိုက်ထည့်ပါ။\n*(User ID သိလိုပါက ထိုသူအား @userinfobot သို့ သွားရောက်နှိပ်ခိုင်းပါ။)*")
+    await state.set_state(AdminSetup.waiting_for_sub_admin_id)
+    await callback.answer()
+
+@client_admin_router.message(AdminSetup.waiting_for_sub_admin_id)
+async def save_sub_admin(message: Message, state: FSMContext, bot: Bot):
+    if not message.text.isdigit():
+        return await message.answer("⚠️ User ID သည် ဂဏန်းသာ ဖြစ်ရပါမည်။")
+    
+    new_admin_id = int(message.text)
+    await db.businesses.update_one(
+        {"bot_token": bot.token},
+        {"$addToSet": {"sub_admins": new_admin_id}} # ထပ်နေပါက နှစ်ခါမမှတ်စေရန် $addToSet သုံးသည်
+    )
+    await message.answer("✅ Admin အကူ (Sub-Admin) အသစ် အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ။\nAdmin Panel သို့ ပြန်သွားရန် /start ကိုနှိပ်ပါ။")
+    await state.clear()
+    
+@client_admin_router.callback_query(F.data == "remove_sub_admin")
+async def remove_sub_admin_prompt(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("🗑 **Admin အကူ ဖယ်ရှားရန်**\n\nဖယ်ရှားလိုသော သူ၏ **Telegram User ID** အား ရိုက်ထည့်ပါ။")
+    await state.set_state(AdminSetup.waiting_for_remove_admin_id)
+    await callback.answer()
+
+@client_admin_router.message(AdminSetup.waiting_for_remove_admin_id)
+async def delete_sub_admin(message: Message, state: FSMContext, bot: Bot):
+    if not message.text.isdigit():
+        return await message.answer("⚠️ User ID သည် ဂဏန်းသာ ဖြစ်ရပါမည်။")
+        
+    remove_id = int(message.text)
+    await db.businesses.update_one(
+        {"bot_token": bot.token},
+        {"$pull": {"sub_admins": remove_id}}
+    )
+    await message.answer("✅ Admin အကူ (Sub-Admin) အား အောင်မြင်စွာ ဖယ်ရှားပြီးပါပြီ။\nAdmin Panel သို့ ပြန်သွားရန် /start ကိုနှိပ်ပါ။")
+    await state.clear()
