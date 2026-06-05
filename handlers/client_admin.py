@@ -364,7 +364,7 @@ async def show_service_detail(callback: CallbackQuery):
         return
         
     duration_val = service.get("duration", 0)
-    duration_text = "Lifetime" if duration_val == 0 else f"{duration_val} ရက်"
+    duration_text = "Lifetime" if duration_val == 0 else f"{duration_val} Days"
     
     # 💥 ပြင်ဆင်ထားသော HTML ကုဒ်
     text = (
@@ -439,7 +439,7 @@ async def save_new_price(message: Message, state: FSMContext):
 async def ask_edit_note(callback: CallbackQuery, state: FSMContext):
     service_id = callback.data.split("_")[2]
     await state.update_data(edit_svc_id=service_id)
-    await callback.message.answer("✏️ ဝန်ဆောင်မှု၏ **မှတ်ချက် (Note) အသစ်** ကို ရိုက်ထည့်ပါ။\n(မှတ်ချက် မထားလိုပါက 'မရှိပါ' ဟု ရိုက်ထည့်နိုင်ပါသည်။)")
+    await callback.message.answer("✏️ Enter a New Note for the service/ plan.\n(If you don't want to leave a comment, you can enter 'Not Yet'.)")
     await state.set_state(EditService.waiting_for_new_note)
     await callback.answer()
 
@@ -448,7 +448,7 @@ async def save_new_note(message: Message, state: FSMContext):
     data = await state.get_data()
     service_id = data.get("edit_svc_id")
     await db.services.update_one({"_id": ObjectId(service_id)}, {"$set": {"note": message.text}})
-    await message.answer("✅ ဝန်ဆောင်မှု မှတ်ချက် (Note) ကို ပြင်ဆင်ပြီးပါပြီ။ Admin Panel သို့ ပြန်သွားရန် /start ကို နှိပ်ပါ။")
+    await message.answer("✅ The service/ plan Note has been edited. Click /start to return to the Admin Panel.")
     await state.clear()
 
 # ==========================================
@@ -459,21 +459,21 @@ async def manage_sub_admins(callback: CallbackQuery, bot: Bot):
     business = await db.businesses.find_one({"bot_token": bot.token})
     # ပိုင်ရှင်မှလွဲ၍ ကျန်သူများ ဝင်ခွင့်မရှိပါ
     if callback.from_user.id != business.get("owner_id"): 
-        return await callback.answer("❌ ပိုင်ရှင် (Owner) သာလျှင် ဝင်ရောက်ခွင့်ရှိသည်။", show_alert=True)
+        return await callback.answer("❌ Only the owner has access.", show_alert=True)
         
     sub_admins = business.get("sub_admins", [])
     
-    text = "👥 **Sub-Admin (အက်ဒမင်အကူ) စာရင်း**\n\n"
+    text = "👥 Sub-Admin Lists!\n\n"
     if not sub_admins:
-        text += "လက်ရှိတွင် Admin အကူ မရှိသေးပါ။"
+        text += "There is currently no Sub-Admin."
     else:
         for idx, admin_id in enumerate(sub_admins, 1):
             text += f"{idx}. User ID: `{admin_id}`\n"
             
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Admin အကူ ထည့်ရန်", callback_data="add_sub_admin")],
-        [InlineKeyboardButton(text="🗑 Admin အကူ ဖယ်ရှားရန်", callback_data="remove_sub_admin")],
-        [InlineKeyboardButton(text="🔙 Admin Menu သို့ ပြန်သွားရန်", callback_data="back_to_admin")]
+        [InlineKeyboardButton(text="➕Add Sub-Admin", callback_data="add_sub_admin")],
+        [InlineKeyboardButton(text="❌ Remove Sub-Admin", callback_data="remove_sub_admin")],
+        [InlineKeyboardButton(text="🔙 Admin Menu", callback_data="back_to_admin")]
     ])
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
 
@@ -492,14 +492,14 @@ async def generate_sub_admin_code(callback: CallbackQuery, bot: Bot):
     )
 
     text = (
-        "➕ <b>Admin အကူ ခန့်အပ်ရန် ဖိတ်ကြားစာ (Invite Code)</b>\n\n"
-        "အောက်ပါ Code ကို Copy ကူး၍ သင် Admin အဖြစ် ခန့်အပ်လိုသော သူထံသို့ ပေးပို့လိုက်ပါ။\n\n"
+        "➕ <b>Sub-Admin Invite Code</b>\n\n"
+        "အCopy the code below and send it to the person you want to add as an Sub-Admin.\n\n"
         f"<code>{random_code}</code>\n\n"
-        "<i>(ထိုသူသည် ဤ Bot အတွင်းသို့ အထက်ပါ Code အား လာရောက်ရိုက်ထည့်လိုက်သည်နှင့် ၎င်း၏ ID ကို Bot မှ အလိုအလျောက်ဖမ်းယူပြီး Admin အကူအဖြစ် တန်း၍ ခန့်အပ်ပေးသွားပါမည်။)</i>"
+        "<i>(Once that person enters the above code into this Bot, the Bot will automatically capture their ID and assign them as an Sub-Admin.)</i>"
     )
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 နောက်သို့", callback_data="manage_sub_admins")]
+        [InlineKeyboardButton(text="🔙 Back", callback_data="manage_sub_admins")]
     ])
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
@@ -511,15 +511,15 @@ async def remove_sub_admin_prompt(callback: CallbackQuery, bot: Bot):
     
     # 💥 ခန့်ထားသော Sub-Admin မရှိပါက ချက်ချင်း အသိပေးမည်
     if not sub_admins:
-        return await callback.answer("⚠️ လက်ရှိတွင် ခန့်အပ်ထားသော Admin အကူ မရှိသေးပါ။", show_alert=True)
+        return await callback.answer("⚠️ There is currently no Sub-Admin assigned.", show_alert=True)
         
-    text = "🗑 **ဖယ်ရှားလိုသော Admin အကူကို အောက်ပါစာရင်းမှ ရွေးချယ်ပါ။**\n\n"
+    text = "❌ Select the Sub-Admin you want to remove from the list below.\n\n"
     
     keyboard = []
     for admin_id in sub_admins:
-        keyboard.append([InlineKeyboardButton(text=f"🗑 ဖယ်ရှားမည် (ID: {admin_id})", callback_data=f"del_sub_{admin_id}")])
+        keyboard.append([InlineKeyboardButton(text=f"❌ Remove (ID: {admin_id})", callback_data=f"del_sub_{admin_id}")])
         
-    keyboard.append([InlineKeyboardButton(text="🔙 နောက်သို့", callback_data="manage_sub_admins")])
+    keyboard.append([InlineKeyboardButton(text="🔙 Back", callback_data="manage_sub_admins")])
     
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode="Markdown")
 
@@ -534,7 +534,7 @@ async def delete_sub_admin_callback(callback: CallbackQuery, bot: Bot):
         {"$pull": {"sub_admins": remove_id}}
     )
     
-    await callback.answer("✅ Admin အကူအား အောင်မြင်စွာ ဖယ်ရှားပြီးပါပြီ။", show_alert=True)
+    await callback.answer("✅ Sub-Admin has been successfully removed.", show_alert=True)
     
     # ဖယ်ရှားပြီးပါက Sub-Admin စီမံသည့် စာမျက်နှာသို့ အလိုအလျောက် ပြန်သွားမည်
     await manage_sub_admins(callback, bot)
@@ -550,7 +550,7 @@ async def set_welcome_msg_callback(callback: CallbackQuery, state: FSMContext, b
     if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
         return
 
-    text = "📝 **Welcome Message သတ်မှတ်ရန်**\n\nဝယ်ယူသူများ Bot သို့ `/start` နှိပ်လိုက်သောအခါ ပထမဆုံး မြင်တွေ့ရမည့် နှုတ်ခွန်းဆက် စာသားကို ရိုက်ထည့်ပါ။\n*(ဥပမာ - ကျွန်ုပ်တို့၏ VIP Channel မှ နွေးထွေးစွာ ကြိုဆိုပါတယ်...)*"
+    text = "📝 Create Welcome Message!\n\nEnter the first greeting text that customers will see when they press `/start` to enter the Bot.\n*(eg. A warmly welcome to our VIP Channel...)*"
     await callback.message.answer(text, parse_mode="Markdown")
     await state.set_state(AdminSetup.waiting_for_welcome_msg)
     await callback.answer()
@@ -561,5 +561,5 @@ async def receive_welcome_msg(message: Message, bot: Bot, state: FSMContext):
         {"bot_token": bot.token}, 
         {"$set": {"welcome_msg": message.text}} # Database သို့ welcome_msg အဖြစ် သိမ်းဆည်းခြင်း
     )
-    await message.answer("✅ Welcome Message ကို အောင်မြင်စွာ မှတ်သားပြီးပါပြီ။ \nAdmin Panel သို့ ပြန်သွားရန် /start ကိုနှိပ်ပါ။")
+    await message.answer("✅ Welcome Message Created Successfully! \nClick /start to return to the Admin Panel.")
     await state.clear()
