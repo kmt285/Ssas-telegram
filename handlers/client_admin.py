@@ -173,15 +173,17 @@ async def receive_service_link(message: Message, state: FSMContext, bot: Bot):
     duration_val = data['service_duration']
     duration_text = "Lifetime (တစ်သက်လုံး)" if duration_val == 0 else f"{duration_val} ရက်"
     
+    # 💥 ပြင်ဆင်ထားသော HTML ကုဒ်
     success_text = (
-        "✅ **Service အသစ် အောင်မြင်စွာ ဖန်တီးပြီးပါပြီ!**\n\n"
-        f"🔹 **အမည်:** {data['service_name']}\n"
-        f"🔹 **ဈေးနှုန်း:** {data['service_price']} ကျပ်\n"
-        f"🔹 **သက်တမ်း:** {duration_text}\n"
-        f"📝 **မှတ်ချက် (Note):** {data.get('service_note', 'မရှိပါ')}\n"
-        f"🔹 **Group/Channel ID:** `{chat_id_str}`"
+        "✅ <b>Service အသစ် အောင်မြင်စွာ ဖန်တီးပြီးပါပြီ!</b>\n\n"
+        f"🔹 <b>အမည်:</b> {data['service_name']}\n"
+        f"🔹 <b>ဈေးနှုန်း:</b> {data['service_price']} ကျပ်\n"
+        f"🔹 <b>သက်တမ်း:</b> {duration_text}\n"
+        f"📝 <b>မှတ်ချက် (Note):</b> {data.get('service_note', 'မရှိပါ')}\n"
+        f"🔹 <b>Group/Channel ID:</b> <code>{chat_id_str}</code>"
     )
-    await message.answer(success_text, parse_mode="Markdown")
+    # 💥 parse_mode="HTML" ပြောင်းသည်
+    await message.answer(success_text, parse_mode="HTML")
     await state.clear()
   
 # ==========================================
