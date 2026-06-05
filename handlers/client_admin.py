@@ -506,23 +506,39 @@ async def generate_sub_admin_code(callback: CallbackQuery, bot: Bot):
 
     
 @client_admin_router.callback_query(F.data == "remove_sub_admin")
-async def remove_sub_admin_prompt(callback: CallbackQuery, state: FSMContext):
-    await callback.message.answer("🗑 **Admin အကူ ဖယ်ရှားရန်**\n\nဖယ်ရှားလိုသော သူ၏ **Telegram User ID** အား ရိုက်ထည့်ပါ။")
-    await state.set_state(AdminSetup.waiting_for_remove_admin_id)
-    await callback.answer()
-
-@client_admin_router.message(AdminSetup.waiting_for_remove_admin_id)
-async def delete_sub_admin(message: Message, state: FSMContext, bot: Bot):
-    if not message.text.isdigit():
-        return await message.answer("⚠️ User ID သည် ဂဏန်းသာ ဖြစ်ရပါမည်။")
+async def remove_sub_admin_prompt(callback: CallbackQuery, bot: Bot):
+    business = await db.businesses.find_one({"bot_token": bot.token})
+    sub_admins = business.get("sub_admins", [])
+    
+    # 💥 ခန့်ထားသော Sub-Admin မရှိပါက ချက်ချင်း အသိပေးမည်
+    if not sub_admins:
+        return await callback.answer("⚠️ လက်ရှိတွင် ခန့်အပ်ထားသော Admin အကူ မရှိသေးပါ။", show_alert=True)
         
-    remove_id = int(message.text)
+    text = "🗑 **ဖယ်ရှားလိုသော Admin အကူကို အောက်ပါစာရင်းမှ ရွေးချယ်ပါ။**\n\n"
+    
+    keyboard = []
+    for admin_id in sub_admins:
+        keyboard.append([InlineKeyboardButton(text=f"🗑 ဖယ်ရှားမည် (ID: {admin_id})", callback_data=f"del_sub_{admin_id}")])
+        
+    keyboard.append([InlineKeyboardButton(text="🔙 နောက်သို့", callback_data="manage_sub_admins")])
+    
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode="Markdown")
+
+# 💥 စာရိုက်ထည့်စရာမလိုတော့ဘဲ ခလုတ်နှိပ်ရုံဖြင့် ဖယ်ရှားပေးမည့်စနစ် 💥
+@client_admin_router.callback_query(F.data.startswith("del_sub_"))
+async def delete_sub_admin_callback(callback: CallbackQuery, bot: Bot):
+    remove_id = int(callback.data.split("_")[2])
+    
+    # Database ထဲမှ ဖယ်ရှားမည်
     await db.businesses.update_one(
         {"bot_token": bot.token},
         {"$pull": {"sub_admins": remove_id}}
     )
-    await message.answer("✅ Admin အကူ (Sub-Admin) အား အောင်မြင်စွာ ဖယ်ရှားပြီးပါပြီ။\nAdmin Panel သို့ ပြန်သွားရန် /start ကိုနှိပ်ပါ။")
-    await state.clear()
+    
+    await callback.answer("✅ Admin အကူအား အောင်မြင်စွာ ဖယ်ရှားပြီးပါပြီ။", show_alert=True)
+    
+    # ဖယ်ရှားပြီးပါက Sub-Admin စီမံသည့် စာမျက်နှာသို့ အလိုအလျောက် ပြန်သွားမည်
+    await manage_sub_admins(callback, bot)
 
 # ==========================================
 # 📝 Welcome Message သတ်မှတ်ခြင်း
