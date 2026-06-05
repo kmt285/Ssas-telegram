@@ -187,12 +187,13 @@ async def view_business_detail(callback: CallbackQuery):
     o_username = biz.get('owner_username')
     owner_display = f"@{o_username}" if o_username else "မသိရှိပါ"
 
-    text = f"🤖 **Bot အမည်:** @{bot_username}\n"
-    text += f"🔗 **Bot Link:** https://t.me/{bot_username}\n"
-    text += f"👤 **Owner:** {owner_display} (ID: `{biz.get('owner_id', 'Unknown')}`)\n"
-    text += f"👥 **လက်ရှိ Active Users:** {user_count} ဦး\n"
-    text += f"⏳ **Bot အခြေအနေ:** {status_text}\n\n"
-    text += "📦 **Services & Channels:**\n"
+    # 💥 ပြင်ဆင်ထားသော HTML ကုဒ်
+    text = f"🤖 <b>Bot အမည်:</b> @{bot_username}\n"
+    text += f"🔗 <b>Bot Link:</b> https://t.me/{bot_username}\n"
+    text += f"👤 <b>Owner:</b> {owner_display} (ID: <code>{biz.get('owner_id', 'Unknown')}</code>)\n"
+    text += f"👥 <b>လက်ရှိ Active Users:</b> {user_count} ဦး\n"
+    text += f"⏳ <b>Bot အခြေအနေ:</b> {status_text}\n\n"
+    text += "📦 <b>Services & Channels:</b>\n"
     
     keyboard = []
     for s in services:
@@ -204,9 +205,8 @@ async def view_business_detail(callback: CallbackQuery):
     keyboard.append([InlineKeyboardButton(text="🗑 Bot အား အပြီးတိုင် ဖျက်သိမ်းမည်", callback_data=f"harddelete_{str(biz['_id'])}")])
     keyboard.append([InlineKeyboardButton(text="🔙 နောက်သို့", callback_data="view_businesses")])
     
-    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode="Markdown", disable_web_page_preview=True)
-    
-    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode="Markdown", disable_web_page_preview=True)
+    # 💥 parse_mode="HTML" ဟု ပြောင်းထားသည်
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard), parse_mode="HTML", disable_web_page_preview=True)
 
 # --- Super Admin အတွက် Invite Link အလိုအလျောက် ထုတ်ပေးခြင်း ---
 @master_router.callback_query(F.data.startswith("genlink_"))
