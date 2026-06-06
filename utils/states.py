@@ -26,4 +26,8 @@ class EditService(StatesGroup):
 class MasterSetup(StatesGroup):
     waiting_for_bot_token = State()
 
+class MasterBooking(StatesGroup):
+    waiting_for_slip = State()
+    plan_days = State()
+
     
