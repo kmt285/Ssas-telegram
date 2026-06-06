@@ -8,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 from bson.objectid import ObjectId
 from core.database import db
 from utils.states import MasterSetup
+from utils.states import MasterBooking
 
 master_router = Router()
 
@@ -31,13 +32,37 @@ async def start_cmd(message: Message, state: FSMContext):
         return await message.answer(text, reply_markup=kb, parse_mode="Markdown")
     
     # 🏢 သာမန် လုပ်ငန်းရှင် ဝင်လာလျှင်
-    text = "🌟 **SaaS Telegram Bot Platform** မှ ကြိုဆိုပါတယ်။\n\n"
-    text += "လူကြီးမင်း၏ ကိုယ်ပိုင် VIP Subscription Bot ကို (၁) လ အခမဲ့ စတင်အသုံးပြုနိုင်ရန် အောက်ပါခလုတ်ကို နှိပ်ပါ။"
+    biz = await db.businesses.find_one({"owner_id": message.from_user.id})
+    
+    if not biz:
+        text = "🌟 **SaaS Telegram Bot Platform** မှ ကြိုဆိုပါတယ်။\n\nလူကြီးမင်း၏ ကိုယ်ပိုင် VIP Subscription Bot ကို (၁) လ အခမဲ့ စတင်အသုံးပြုနိုင်ရန် အောက်ပါခလုတ်ကို နှိပ်ပါ။"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="➕ Bot အသစ် ဖန်တီးရန်", callback_data="create_new_bot")]])
+        return await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+        
+    # သက်တမ်းတွက်ချက်ခြင်း
+    exp = biz.get("expires_at")
+    if not exp:
+        exp_text = "Lifetime (အကန့်အသတ်မရှိ)"
+        status_text = "🟢 Active"
+    else:
+        exp_text = exp.strftime("%d-%m-%Y")
+        status_text = "🔴 Suspended (ရပ်ဆိုင်းထားသည်)" if biz.get("status") == "suspended" else "🟢 Active"
+        
+    text = (
+        f"🏢 **လူကြီးမင်း၏ Bot အချက်အလက်များ**\n\n"
+        f"🤖 **Bot Token:** `{biz['bot_token'][:15]}...`\n"
+        f"⏳ **သက်တမ်းကုန်ဆုံးမည့်ရက်:** {exp_text}\n"
+        f"📊 **အခြေအနေ:** {status_text}\n\n"
+        "💳 **သက်တမ်းတိုးရန် အောက်ပါ Plan များမှ တစ်ခုကို ရွေးချယ်ပါ။**"
+    )
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Bot အသစ် ဖန်တီးရန်", callback_data="create_new_bot")]
+        [InlineKeyboardButton(text="🔹 1 Month Plan - 30,000 MMK", callback_data="buyplan_30")],
+        [InlineKeyboardButton(text="🔹 3 Months Plan - 80,000 MMK", callback_data="buyplan_90")],
+        [InlineKeyboardButton(text="🔹 6 Months Plan - 150,000 MMK", callback_data="buyplan_180")],
+        [InlineKeyboardButton(text="💎 Lifetime Plan - 500,000 MMK", callback_data="buyplan_0")]
     ])
     await message.answer(text, reply_markup=kb, parse_mode="Markdown")
-
 # ==========================================
 # 🏢 လုပ်ငန်းရှင်များ Bot Token ထည့်သွင်းခြင်း စနစ်
 # ==========================================
@@ -313,3 +338,125 @@ async def hard_delete_bot(callback: CallbackQuery):
     
     # ရှင်းပြီးပါက လုပ်ငန်းရှင်များစာရင်းသို့ ပြန်သွားမည်
     await list_businesses(callback)
+
+# 💳 Master Payment Info (Super Admin မှ သတ်မှတ်ရန်)
+# ==========================================
+@master_router.message(Command("setpayment"))
+async def set_master_payment(message: Message):
+    if message.from_user.id not in SUPER_ADMINS: return
+    
+    pay_info = message.text.replace("/setpayment", "").strip()
+    if not pay_info:
+        return await message.answer("❌ ပုံစံမှားနေပါသည်။\nအသုံးပြုရန်: `/setpayment KPay - 09123456789 (U Mya)`", parse_mode="Markdown")
+        
+    await db.system_config.update_one(
+        {"_id": "master_config"}, 
+        {"$set": {"payment_info": pay_info}}, 
+        upsert=True
+    )
+    await message.answer(f"✅ လုပ်ငန်းရှင်များ ငွေလွှဲရန် အကောင့်ကို အောင်မြင်စွာ မှတ်သားပြီးပါပြီ။\n\n{pay_info}")
+
+# ==========================================
+# 🛍 လုပ်ငန်းရှင်များ Subscription ဝယ်ယူခြင်း (Renew Plans)
+# ==========================================
+@master_router.callback_query(F.data.startswith("buyplan_"))
+async def buy_master_plan(callback: CallbackQuery, state: FSMContext):
+    days = int(callback.data.split("_")[1])
+    
+    config = await db.system_config.find_one({"_id": "master_config"})
+    pay_info = config.get("payment_info", "ငွေပေးချေမှု အချက်အလက် မရှိသေးပါ။ Super Admin ထံ ဆက်သွယ်ပါ။") if config else "Admin ထံ ဆက်သွယ်ပါ။"
+    
+    plan_names = {30: "၁ လ (30 Days)", 90: "၃ လ (90 Days)", 180: "၆ လ (180 Days)", 0: "တစ်သက်လုံး (Lifetime)"}
+    prices = {30: "30,000", 90: "80,000", 180: "150,000", 0: "500,000"} # 💥 ဤနေရာတွင် ဈေးနှုန်းများ ပြင်နိုင်သည်
+    
+    text = (
+        f"💳 **'{plan_names[days]}' သက်တမ်းတိုးရန် ငွေလွှဲရမည့် အချက်အလက်**\n\n"
+        f"🏦 **အကောင့်:** {pay_info}\n"
+        f"💵 **ကျသင့်ငွေ:** {prices[days]} ကျပ်\n\n"
+        "⚠️ **အရေးကြီးသည်:** ငွေလွှဲပြီးပါက ငွေလွှဲပြေစာ (Slip Screenshot) ကို ဤနေရာသို့ ဓာတ်ပုံ (Photo) အဖြစ် ပို့ပေးပါ။"
+    )
+    
+    await state.update_data(plan_days=days)
+    await state.set_state(MasterBooking.waiting_for_slip)
+    await callback.message.answer(text, parse_mode="Markdown")
+    await callback.answer()
+
+@master_router.message(MasterBooking.waiting_for_slip, F.photo)
+async def receive_master_slip(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    days = data.get("plan_days")
+    photo_id = message.photo[-1].file_id
+    
+    await message.answer("⏳ ငွေလွှဲပြေစာကို လက်ခံရရှိပါပြီ။ Super Admin မှ အတည်ပြုပြီးပါက သက်တမ်း အလိုအလျောက် တိုးသွားပါမည်။")
+    await state.clear()
+    
+    # Super Admin များထံသို့ ပြေစာလှမ်းပို့မည်
+    plan_names = {30: "၁ လ", 90: "၃ လ", 180: "၆ လ", 0: "Lifetime"}
+    admin_text = (
+        f"💰 **လုပ်ငန်းရှင်ထံမှ သက်တမ်းတိုး ပြေစာ ရောက်ရှိလာပါသည်!**\n\n"
+        f"👤 **လုပ်ငန်းရှင်:** {message.from_user.full_name} (@{message.from_user.username})\n"
+        f"🆔 **ID:** `{message.from_user.id}`\n"
+        f"📦 **Plan:** {plan_names[days]}\n"
+    )
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Approve (အတည်ပြုမည်)", callback_data=f"master_approve_{message.from_user.id}_{days}")],
+        [InlineKeyboardButton(text="❌ Reject (ပယ်ချမည်)", callback_data=f"master_reject_{message.from_user.id}")]
+    ])
+    
+    for admin_id in SUPER_ADMINS:
+        try:
+            await bot.send_photo(chat_id=admin_id, photo=photo_id, caption=admin_text, reply_markup=kb, parse_mode="Markdown")
+        except: pass
+
+# --- Super Admin မှ Approve / Reject ပြုလုပ်ခြင်း ---
+@master_router.callback_query(F.data.startswith("master_approve_"))
+async def approve_business_sub(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id not in SUPER_ADMINS: return
+    
+    parts = callback.data.split("_")
+    owner_id = int(parts[2])
+    days = int(parts[3])
+    
+    biz = await db.businesses.find_one({"owner_id": owner_id})
+    if not biz:
+        return await callback.answer("ဤလုပ်ငန်းရှင် ရှာမတွေ့ပါ။", show_alert=True)
+        
+    now = datetime.utcnow()
+    current_exp = biz.get("expires_at")
+    
+    if days == 0:
+        new_exp = None # Lifetime
+    else:
+        if current_exp and current_exp > now:
+            new_exp = current_exp + timedelta(days=days) # ရှိရင်းစွဲသက်တမ်းပေါ် ထပ်ပေါင်းမည်
+        else:
+            new_exp = now + timedelta(days=days) # သက်တမ်းကုန်နေပါက ယနေ့မှစ၍ ပေါင်းမည်
+            
+    await db.businesses.update_one(
+        {"owner_id": owner_id},
+        {"$set": {
+            "expires_at": new_exp, 
+            "status": "active",
+            "notified_7": False, "notified_3": False, "notified_1": False # သတိပေးချက်များကို Reset ချမည်
+        }}
+    )
+    
+    # လုပ်ငန်းရှင်ထံ အကြောင်းကြားမည်
+    try:
+        await bot.send_message(owner_id, "✅ **ဂုဏ်ယူပါသည်။ လူကြီးမင်း၏ Bot သက်တမ်းတိုးခြင်း အောင်မြင်ပါသည်။**\n\nစနစ်အား ပုံမှန်အတိုင်း ပြန်လည်အသုံးပြုနိုင်ပါပြီ။", parse_mode="Markdown")
+    except: pass
+    
+    await callback.message.edit_caption(caption=callback.message.caption + "\n\n🟢 **APPROVED**", reply_markup=None)
+    await callback.answer("သက်တမ်းတိုးပေးလိုက်ပါပြီ။")
+
+@master_router.callback_query(F.data.startswith("master_reject_"))
+async def reject_business_sub(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id not in SUPER_ADMINS: return
+    owner_id = int(callback.data.split("_")[2])
+    
+    try:
+        await bot.send_message(owner_id, "❌ **လူကြီးမင်း၏ ငွေလွှဲပြေစာအား အတည်မပြုနိုင်ပါ။**\n\nကျေးဇူးပြု၍ ပြေစာအမှန်အား ပြန်လည်စစ်ဆေး၍ အသစ်ပေးပို့ပေးပါ။", parse_mode="Markdown")
+    except: pass
+    
+    await callback.message.edit_caption(caption=callback.message.caption + "\n\n🔴 **REJECTED**", reply_markup=None)
