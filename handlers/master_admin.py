@@ -145,7 +145,8 @@ async def receive_bot_token(message: Message, state: FSMContext):
 # ==========================================
 @master_router.callback_query(F.data == "show_stats")
 async def view_system_stats_cb(callback: CallbackQuery):
-    if callback.fromuser.id not in SUPER_ADMINS: return
+    # 💥 အောက်ပါစာကြောင်းရှိ fromuser ကို from_user အဖြစ် ပြင်ဆင်ထားပါသည်
+    if callback.from_user.id not in SUPER_ADMINS: return 
     
     total_bots = await db.businesses.count_documents({})
     total_services = await db.services.count_documents({})
@@ -159,7 +160,7 @@ async def view_system_stats_cb(callback: CallbackQuery):
         "စနစ်တစ်ခုလုံး တည်ငြိမ်စွာ လည်ပတ်နေပါသည်။ 🚀"
     )
     
-    # 💥 NEW: လက်ရှိ Subscription ဖွင့်ထားသလား ပိတ်ထားသလား စစ်ဆေးမည်
+    # 💥 လက်ရှိ Subscription ဖွင့်ထားသလား ပိတ်ထားသလား စစ်ဆေးမည်
     config = await db.system_config.find_one({"_id": "master_config"})
     is_sub_mode = config.get("subscription_mode", False) if config else False
     
