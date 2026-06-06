@@ -6,18 +6,40 @@ from handlers.client_bot import client_router
 from handlers.client_admin import client_admin_router
 
 # ==========================================
-# 💥 NEW: Dispatcher နှင့် Router များကို Function အပြင်ဘက်တွင် တစ်ကြိမ်တည်းသာ ချိတ်ဆက်မည်
+# 💥 Master Dispatcher (ဦးနှောက်) အား တစ်ခုတည်းသာ တည်ဆောက်မည်
 # ==========================================
 client_dp = Dispatcher()
 client_dp.include_router(client_router)
 client_dp.include_router(client_admin_router)
 
+# ==========================================
+# 💥 NEW: Bot တစ်ခုချင်းစီအတွက် သီးသန့် Polling လုပ်ပေးမည့် အင်ဂျင်
+# ==========================================
+async def poll_bot(bot: Bot):
+    offset = None
+    logging.info(f"✅ Started Polling for Client Bot: {bot.token[:10]}...")
+    while True:
+        try:
+            # Telegram Server ထံမှ အချက်အလက်များကို သီးသန့် လှမ်းယူမည်
+            updates = await bot.get_updates(offset=offset, timeout=20)
+            for update in updates:
+                offset = update.update_id + 1
+                # ရရှိလာသော အချက်အလက်ကို Dispatcher ထံသို့ Manual ဖြည့်သွင်းပေးမည်
+                await client_dp.feed_update(bot, update)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            # Error တက်ပါက (ဥပမာ- အင်တာနက်ပြတ်သွားပါက) ၃ စက္ကန့်နားပြီး ပြန်စစ်မည်
+            await asyncio.sleep(3)
+
+# ==========================================
+# 💥 Bot အသစ်များကို စတင်ချိတ်ဆက်မည့် Function
+# ==========================================
 async def start_client_bot(token):
     try:
         bot = Bot(token=token)
-        # 💥 NEW: Dispatcher အသစ် ထပ်မလုပ်တော့ဘဲ အပေါ်က client_dp ဖြင့်သာ polling ကို တိုက်ရိုက်စတင်မည်
-        asyncio.create_task(client_dp.start_polling(bot))
-        logging.info(f"✅ Started Client Bot: {token[:10]}...")
+        # 💥 aiogram ၏ start_polling အစား သီးသန့် poll_bot ကိုသာ အသုံးပြုမည်
+        asyncio.create_task(poll_bot(bot))
     except Exception as e:
         logging.error(f"❌ Failed to start bot {token[:10]}: {e}")
 
