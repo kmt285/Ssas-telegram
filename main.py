@@ -7,7 +7,7 @@ from core.config import MASTER_BOT_TOKEN, PORT
 from core.bot_manager import start_all_client_bots
 from handlers.master_admin import master_router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from utils.scheduler import check_expired_subscriptions
+from utils.scheduler import check_expired_subscriptions, check_business_expirations
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,6 +42,7 @@ async def main():
     scheduler = AsyncIOScheduler()
     
     scheduler.add_job(check_expired_subscriptions, "interval", hours=1, next_run_time=datetime.now()) 
+    scheduler.add_job(check_business_expirations, "interval", hours=1, args=[master_bot], next_run_time=datetime.now())
     
     scheduler.start()
     logging.info("⏱ Scheduler started for auto-kick system.")
