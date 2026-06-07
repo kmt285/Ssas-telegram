@@ -37,7 +37,7 @@ async def check_expired_subscriptions():
                 
                 # User ထံသို့ အသိပေး Message ပို့မည်
                 msg = (
-                    f"⚠️ **သက်တမ်းကုန်ဆုံးခြင်း အသိပေးချက်**\n\n"
+                    f"⚠️ သက်တမ်းကုန်ဆုံးခြင်း အသိပေးချက်\n\n"
                     f"လူကြီးမင်း ဝယ်ယူထားသော **{service['name']}** ၏ သက်တမ်းမှာ ကုန်ဆုံးသွားပြီဖြစ်သောကြောင့် Group ထဲမှ အလိုအလျောက် ဖယ်ရှားလိုက်ပါသည်။\n\n"
                     f"ဆက်လက်အသုံးပြုလိုပါက ဤ Bot ထဲတွင် /start ကိုနှိပ်၍ သက်တမ်းပြန်လည် တိုးနိုင်ပါသည်။"
                 )
@@ -71,21 +71,21 @@ async def check_business_expirations(master_bot):
         # ၁။ ၇-ရက် အလို သတိပေးခြင်း
         if days_left == 7 and not biz.get("notified_7"):
             try:
-                await master_bot.send_message(owner_id, "⚠️ **သတိပေးချက်:** လူကြီးမင်း၏ Bot သက်တမ်း (၇) ရက်အတွင်း ကုန်ဆုံးပါတော့မည်။ ဆက်လက်အသုံးပြုရန် Master Bot တွင် ငွေပေးချေမှုပြုလုပ်ပါ။", parse_mode="Markdown")
+                await master_bot.send_message(owner_id, "⚠️ သတိပေးချက်: လူကြီးမင်း၏ Bot သက်တမ်း (၇) ရက်အတွင်း ကုန်ဆုံးပါတော့မည်။ ဆက်လက်အသုံးပြုရန် @forsubscription တွင် ငွေပေးချေမှုပြုလုပ်ပါ။", parse_mode="Markdown")
                 await db.businesses.update_one({"_id": biz["_id"]}, {"$set": {"notified_7": True}})
             except: pass
             
         # ၂။ ၃-ရက် အလို သတိပေးခြင်း
         elif days_left == 3 and not biz.get("notified_3"):
             try:
-                await master_bot.send_message(owner_id, "⚠️ **အရေးကြီးသတိပေးချက်:** လူကြီးမင်း၏ Bot သက်တမ်း (၃) ရက်အတွင်း ကုန်ဆုံးပါတော့မည်။ သက်တမ်းမတိုးပါက စနစ်မှ ယာယီရပ်ဆိုင်းသွားမည်ဖြစ်သည်။", parse_mode="Markdown")
+                await master_bot.send_message(owner_id, "⚠️ အရေးကြီးသတိပေးချက်: လူကြီးမင်း၏ Bot သက်တမ်း (၃) ရက်အတွင်း ကုန်ဆုံးပါတော့မည်။ သက်တမ်းမတိုးပါက စနစ်မှ ယာယီရပ်ဆိုင်းသွားမည်ဖြစ်သည်။", parse_mode="Markdown")
                 await db.businesses.update_one({"_id": biz["_id"]}, {"$set": {"notified_3": True}})
             except: pass
             
         # ၃။ ၁-ရက် အလို သတိပေးခြင်း
         elif days_left == 1 and not biz.get("notified_1"):
             try:
-                await master_bot.send_message(owner_id, "🚨 **နောက်ဆုံးသတိပေးချက်:** မနက်ဖြန်တွင် လူကြီးမင်း၏ Bot သက်တမ်းကုန်ဆုံးမည်ဖြစ်၍ ဝန်ဆောင်မှုများ အလိုအလျောက် ရပ်တန့်သွားပါမည်။", parse_mode="Markdown")
+                await master_bot.send_message(owner_id, "🚨 သတိပေးချက်: မနက်ဖြန်တွင် လူကြီးမင်း၏ Bot သက်တမ်းကုန်ဆုံးမည်ဖြစ်၍ ဝန်ဆောင်မှုများ အလိုအလျောက် ရပ်တန့်သွားပါမည်။", parse_mode="Markdown")
                 await db.businesses.update_one({"_id": biz["_id"]}, {"$set": {"notified_1": True}})
             except: pass
             
@@ -93,7 +93,7 @@ async def check_business_expirations(master_bot):
         elif time_left.total_seconds() <= 0 and biz.get("status") == "active":
             await db.businesses.update_one({"_id": biz["_id"]}, {"$set": {"status": "suspended"}})
             try:
-                await master_bot.send_message(owner_id, "🚫 **လူကြီးမင်း၏ Bot မှာ သက်တမ်းကုန်ဆုံးသွားသောကြောင့် ယာယီရပ်ဆိုင်း (Suspend) လိုက်ပါသည်။**\n\n(၇) ရက်အတွင်း သက်တမ်းမတိုးပါက Database အတွင်းမှ Data များအားလုံး အပြီးတိုင် ပျက်ပြယ်သွားမည် ဖြစ်ပါသည်။", parse_mode="Markdown")
+                await master_bot.send_message(owner_id, "🚫 လူကြီးမင်း၏ Bot မှာ သက်တမ်းကုန်ဆုံးသွားသောကြောင့် ယာယီရပ်ဆိုင်းလိုက်ပါသည်။**\n\n(၇) ရက်အတွင်း သက်တမ်းမတိုးခြင်းမရှိပါ Database အတွင်းမှ Data များအားလုံး အပြီးတိုင် ပျက်ပြယ်သွားမည် ဖြစ်ပါသည်။", parse_mode="Markdown")
             except: pass
             
         # ၅။ Suspend ဖြစ်ပြီး (၇) ရက် ကျော်လွန်သွားပါက DATABASE မှ အပြီးတိုင် ရှင်းထုတ်ခြင်း 💥
@@ -103,5 +103,5 @@ async def check_business_expirations(master_bot):
             await db.services.delete_many({"bot_token": token})
             await db.subscriptions.delete_many({"bot_token": token})
             try:
-                await master_bot.send_message(owner_id, "🗑 **လူကြီးမင်း၏ Bot အား သက်တမ်းလွန်သွားသဖြင့် စနစ်မှ အပြီးတိုင် ရှင်းလင်းဖယ်ရှားလိုက်ပါပြီ။**\n\nကျေးဇူးပြု၍ စနစ်ကို ပြန်လည်အသုံးပြုလိုပါက Bot အသစ် ပြန်လည်ချိတ်ဆက်ပါ။", parse_mode="Markdown")
+                await master_bot.send_message(owner_id, "❌ လူကြီးမင်း၏ Bot အား သက်တမ်းလွန်သွားသဖြင့် စနစ်မှ အပြီးတိုင် ရှင်းလင်းဖယ်ရှားလိုက်ပါပြီ။\n\nကျေးဇူးပြု၍ စနစ်ကို ပြန်လည်အသုံးပြုလိုပါက Bot အသစ် ပြန်လည်ချိတ်ဆက်ပါ။", parse_mode="Markdown")
             except: pass
