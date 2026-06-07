@@ -22,7 +22,7 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
 
     # Super Admin မှ ယာယီရပ်ဆိုင်းထားခြင်း ရှိ/မရှိ စစ်ဆေးခြင်း
     if business.get("status") == "suspended":
-        await message.answer("🚫 **ဤ Bot အား Super Admin မှ ယာယီရပ်ဆိုင်း (Suspend) ထားပါသည်။**\n\nအသေးစိတ်သိရှိလိုပါက Platform Admin ထံ ဆက်သွယ်ပါ။")
+        await message.answer("🚫 This Bot has been temporarily suspended by the Platform.\n\nFor more information, please contact the Platform Admin @botdistribution.")
         return
 
     owner_id = business.get("owner_id")
@@ -37,14 +37,14 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
     if expires_at and datetime.utcnow() > expires_at:
         # သက်တမ်းကုန်နေလျှင်
         if is_owner or is_sub_admin:
-            await message.answer("⚠️ **လူကြီးမင်း၏ Bot အသုံးပြုခွင့် (၁) လ (Free Trial) သက်တမ်း ကုန်ဆုံးသွားပါပြီ။**\n\nဆက်လက်အသုံးပြုလိုပါက System Admin ထံ ဆက်သွယ်၍ သက်တမ်းတိုးပါ။")
+            await message.answer("⚠️ Your (1) month (Free Trial) Bot usage period has expired.\n\nIf you wish to continue using it, please contact the System Admin to renew it. @botdistribution")
         else:
-            await message.answer("⚠️ **ဤ Bot သည် လက်ရှိတွင် ဝန်ဆောင်မှု ယာယီရပ်နားထားပါသည်။**")
+            await message.answer("⚠️ This Bot is currently temporarily down.")
         return 
 
     # ပိုင်ရှင် (သို့) Admin အကူ ဖြစ်နေလျှင် Admin Panel ကို ပြမည်
     if is_owner or is_sub_admin:
-        text = "🛠 **လုပ်ငန်းရှင် / Admin Panel** မှ ကြိုဆိုပါတယ်။\n\nလိုအပ်သော လုပ်ဆောင်ချက်ကို အောက်ပါခလုတ်များမှ ရွေးချယ်ပါ။"
+        text = "Welcome to Business Admin Panel.\n\nSelect the required action from the buttons below."
         await message.answer(text, reply_markup=admin_kb(is_owner=is_owner), parse_mode="Markdown")
         
     else:
@@ -55,22 +55,22 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
         services = await cursor.to_list(length=100)
         
         # 💥 NEW: Database မှ Custom Welcome Message ကို ဆွဲထုတ်ခြင်း (မရှိပါက Default စာသားပြမည်)
-        welcome_msg = business.get("welcome_msg", "🌟 **ကျွန်ုပ်တို့၏ VIP ဝန်ဆောင်မှုမှ ကြိုဆိုပါတယ်။** 🌟")
+        welcome_msg = business.get("welcome_msg", "Welcome to our VIP service.")
         text = f"{welcome_msg}\n\n"
         
         keyboard = []
         
         if services:
-            text += "ဝယ်ယူလိုသော ဝန်ဆောင်မှုကို အောက်ပါခလုတ်များမှ ရွေးချယ်ပါ-\n"
+            text += "Select the service you want to purchase from the buttons below.\n"
             for s in services:
-                keyboard.append([InlineKeyboardButton(text=f"🔹 {s['name']} - {s['price']} ကျပ်", callback_data=f"buy_{s['_id']}")])
+                keyboard.append([InlineKeyboardButton(text=f" {s['name']} - {s['price']} MMK", callback_data=f"buy_{s['_id']}")])
         else:
-            text += "လောလောဆယ် ဝယ်ယူနိုင်သော ဝန်ဆောင်မှုများ မရှိသေးပါ။\n"
+            text += "There are currently no services available for purchase.\n"
             
         if active_subs:
             keyboard.append([InlineKeyboardButton(text="🔑 Backup Key (အကောင့်ပျက်လျှင် ပြန်ယူရန်)", callback_data="get_backup_key")])
         else:
-            keyboard.append([InlineKeyboardButton(text="🔄 အကောင့်ဟောင်း ပြန်ယူရန် (Recover)", callback_data="recover_account")])
+            keyboard.append([InlineKeyboardButton(text="🔄 (Recover Old Account)", callback_data="recover_account")])
             
         reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
         await message.answer(text, reply_markup=reply_markup, parse_mode="Markdown")
@@ -84,23 +84,23 @@ async def buy_service_callback(callback: CallbackQuery, state: FSMContext, bot: 
     business = await db.businesses.find_one({"bot_token": bot.token})
     
     if not service or not business:
-        await callback.answer("❌ ဝန်ဆောင်မှု ရှာမတွေ့ပါ။", show_alert=True)
+        await callback.answer("❌Service not found.", show_alert=True)
         return
         
-    payment_info = business.get("payment_info", "ငွေပေးချေမှုအချက်အလက် မရှိသေးပါ။ Admin ကို ဆက်သွယ်ပါ။")
+    payment_info = business.get("payment_info", "No payment information yet.")
     
     duration_val = service.get("duration", 0)
-    duration_text = "Lifetime (တစ်သက်လုံး)" if duration_val == 0 else f"{duration_val} ရက်"
-    service_note = service.get("note", "မရှိပါ") # 💥 Note အား ဆွဲထုတ်ခြင်း
+    duration_text = "Lifetime" if duration_val == 0 else f"{duration_val} Days"
+    service_note = service.get("note", "Not yet") # 💥 Note အား ဆွဲထုတ်ခြင်း
     
     # 💥 ပြင်ဆင်ထားသော HTML ကုဒ်
     text = (
         f"💳 <b>'{service['name']}' ကို ဝယ်ယူရန် ငွေလွှဲရမည့် အချက်အလက်</b>\n\n"
         f"{payment_info}\n\n"
-        f"💵 <b>ကျသင့်ငွေ:</b> {service['price']} ကျပ်\n"
-        f"⏳ <b>သက်တမ်း:</b> {duration_text}\n"
-        f"📝 <b>အသေးစိတ် (Note):</b> {service_note}\n\n"
-        "⚠️ <b>အရေးကြီးသည်:</b> ငွေလွှဲပြီးပါက ငွေလွှဲပြေစာ (Slip Screenshot) ကို ဤနေရာသို့ ဓာတ်ပုံ (Photo) အဖြစ် ပို့ပေးပါ။"
+        f"💵 <b>Price :</b> {service['price']} MMK\n"
+        f"⏳ <b>Duration :</b> {duration_text}\n"
+        f"📝 <b>Note :</b> {service_note}\n\n"
+        "⚠️ <b>Important :</b> ငွေလွှဲပြီးပါက ငွေလွှဲပြေစာ (Slip Screenshot) ကို ဤနေရာသို့ ဓာတ်ပုံ ပို့ပေးပါ။"
     )
     
     # 💥 parse_mode="HTML" ပြောင်းသည်
@@ -119,7 +119,7 @@ async def receive_slip_photo(message: Message, state: FSMContext, bot: Bot):
     business = await db.businesses.find_one({"bot_token": bot.token})
     
     if not service or not business:
-        await message.answer("❌ စနစ်ချို့ယွင်းမှု ရှိနေပါသည်။ ကျေးဇူးပြု၍ /start ကို ပြန်နှိပ်ပါ။")
+        await message.answer("❌ There is a system error. Please press /start again.")
         await state.clear()
         return
         
@@ -135,7 +135,7 @@ async def receive_slip_photo(message: Message, state: FSMContext, bot: Bot):
     sub_id = str(sub_result.inserted_id)
     
     # ဝယ်ယူသူထံ စာပြန်မည်
-    await message.answer("⏳ လူကြီးမင်း၏ ငွေလွှဲပြေစာကို လက်ခံရရှိပါပြီ။ Admin ၏ စစ်ဆေးအတည်ပြုချက်ကို ခေတ္တစောင့်ဆိုင်းပေးပါ။ အတည်ပြုပြီးပါက Group Link ကို အလိုအလျောက် ပေးပို့ပေးပါမည်။")
+    await message.answer("⏳ Your payment receipt has been received. Please wait for the admin to verify. Once approved, the Group Link will be sent automatically.\n\n(‌ငွေလွှဲပြေစာလက်ခံရရှိပါသည်။ အတည်ပြုချိန်စောင့်ဆိုင်းပေးပါ။)")
     await state.clear()
     
     # ทำการ ပိုင်ရှင် (Owner) ဆီသို့ Slip ပုံနှင့် Approve/Reject ခလုတ် လှမ်းပို့မည်
@@ -144,10 +144,10 @@ async def receive_slip_photo(message: Message, state: FSMContext, bot: Bot):
     
     # 💥 ပြင်ဆင်ထားသော HTML ကုဒ်
     admin_text = (
-        f"💰 <b>ငွေလွှဲပြေစာအသစ် ရောက်ရှိလာပါသည်!</b>\n\n"
-        f"👤 <b>ဝယ်ယူသူ:</b> {message.from_user.full_name} (@{message.from_user.username})\n"
-        f"📦 <b>Service:</b> {service['name']}\n"
-        f"💵 <b>ဈေးနှုန်း:</b> {service['price']} ကျပ်\n"
+        f"💰 <b>New Payment Received!</b>\n\n"
+        f"👤 <b>Customer :</b> {message.from_user.full_name} (@{message.from_user.username})\n"
+        f"📦 <b>Service :</b> {service['name']}\n"
+        f"💵 <b>Price :</b> {service['price']} MMK\n"
     )
     
     admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -191,13 +191,13 @@ async def handle_join_request(update: ChatJoinRequest, bot: Bot):
     if is_allowed:
         await update.approve() # မှန်ကန်သော ဝယ်ယူသူဖြစ်၍ အလိုအလျောက် လက်ခံပေးမည်
         try:
-            await bot.send_message(user_id, "✅ Group/Channel သို့ ဝင်ခွင့်ပြုလိုက်ပါပြီ။")
+            await bot.send_message(user_id, "✅ Group/Channel Approved!")
         except:
             pass
     else:
         await update.decline() # မသက်ဆိုင်သူ ဖြစ်၍ အလိုအလျောက် ပယ်ချမည်
         try:
-            await bot.send_message(user_id, "❌ သင့်တွင် ဝင်ခွင့် (Active Subscription) မရှိသောကြောင့် ဝင်ခွင့်ပယ်ချလိုက်ပါသည်။")
+            await bot.send_message(user_id, "❌ Access has been denied because you do not have an active subscription.")
         except:
             pass
 
@@ -237,7 +237,7 @@ async def get_backup_key(callback: CallbackQuery, bot: Bot):
         )
 
     text = (
-        f"🔑 **သင့်၏ Backup Key မှာ:** `{backup_key}`\n\n"
+        f"🔑 Your Backup Key - `{backup_key}`\n\n"
         "⚠️ ဤ Key အား Copy ကူး၍ လုံခြုံသောနေရာတွင် သေချာစွာ မှတ်သားထားပါ။ သင့်အကောင့် ပျက်သွားပါက အကောင့်သစ်မှတစ်ဆင့် ဤ Key ကိုအသုံးပြု၍ သင်၏ ဝန်ဆောင်မှုများကို ပြန်လည်ရယူနိုင်ပါသည်။"
     )
     await callback.message.answer(text, parse_mode="Markdown")
@@ -246,7 +246,7 @@ async def get_backup_key(callback: CallbackQuery, bot: Bot):
 
 @client_router.callback_query(F.data == "recover_account")
 async def ask_recover_key(callback: CallbackQuery, state: FSMContext):
-    text = "🔄 **အကောင့်ဟောင်း ပြန်ယူခြင်း**\n\nလူကြီးမင်း၏ ယခင်အကောင့်မှ ရယူထားသော `Backup Key` (ဥပမာ BKP-XXXXXX) ကို ရိုက်ထည့်ပါ။"
+    text = "🔄 Recover Old Account \n\nလူကြီးမင်း၏ ယခင်အကောင့်မှ ရယူထားသော `Backup Key` ကို ရိုက်ထည့်ပါ။"
     await callback.message.answer(text)
     await state.set_state(UserBooking.waiting_for_recovery_key)
     await callback.answer()
@@ -261,7 +261,7 @@ async def process_recovery_key(message: Message, state: FSMContext, bot: Bot):
     subs = await cursor.to_list(length=100)
 
     if not subs:
-        await message.answer("❌ Key မှားယွင်းနေပါသည် (သို့မဟုတ်) သက်တမ်းကုန်သွားသော Key ဖြစ်ပါသည်။\n\nပြန်လည်ကြိုးစားရန် /start ကို နှိပ်ပါ။")
+        await message.answer("❌ The key is incorrect or has expired.\n\nPress /start to try again.")
         await state.clear()
         return
 
@@ -313,10 +313,9 @@ async def process_recovery_key(message: Message, state: FSMContext, bot: Bot):
         )
 
     success_text = (
-        "✅ **အကောင့်ပြန်လည်ရယူခြင်း အောင်မြင်ပါသည်။**\n\n"
-        "ယခင်အကောင့်ရှိ ဝန်ဆောင်မှုများကို ဤအကောင့်သစ်သို့ အောင်မြင်စွာ လွှဲပြောင်းပေးလိုက်ပါပြီ။ \n"
-        "*(လုံခြုံရေးအရ သင်၏ ယခင်အကောင့်ဟောင်းအား Group များမှ အလိုအလျောက် ဖယ်ရှားလိုက်ပါပြီ)*\n\n"
-        "👇 **အောက်ပါခလုတ်များကို နှိပ်၍ သက်ဆိုင်ရာ Group / Channel များသို့ ပြန်လည်ဝင်ရောက်နိုင်ပါပြီ။**"
+        "✅ Recover Old Account Success!\n\n"
+        "ယခင်အကောင့်ရှိ ဝန်ဆောင်မှုများကို ဤအကောင့်သစ်သို့ အောင်မြင်စွာ လွှဲပြောင်းပေးလိုက်ပါပြီ။ \n\n"
+        "👇 Join Your Group / Channel"
     )
     
     reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard) if keyboard else None
@@ -351,6 +350,6 @@ async def claim_sub_admin(message: Message, bot: Bot):
             }
         )
         
-        await message.answer("🎉 **ဂုဏ်ယူပါသည်။ လူကြီးမင်းသည် ဤ Bot ၏ Admin အကူ (Sub-Admin) အဖြစ် အောင်မြင်စွာ ခန့်အပ်ခံရပါပြီ။**\n\nစတင်အသုံးပြုရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown")
+        await message.answer("🎉 Congratulations!. You have been successfully added as a Sub-Admin of this Bot.\n\nClick /start to get started.", parse_mode="Markdown")
     else:
-        await message.answer("❌ ဖိတ်ကြားစာ Code မှားယွင်းနေပါသည် (သို့မဟုတ်) အသုံးပြုပြီးသား ဖြစ်နေပါသည်။")
+        await message.answer("❌ The invitation code is incorrect or has already been used!")
