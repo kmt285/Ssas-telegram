@@ -9,6 +9,6 @@ MONGODB_URI = "mongodb://localhost:27017/"
 DB_NAME = "saas_bot_db"
 
 # Webhook Settings 
-WEBHOOK_HOST = "သင့်_SERVER_EXTERNAL_IP"
+WEBHOOK_HOST = "34.134.65.219"
 WEBHOOK_PORT = 8443
 EOF
