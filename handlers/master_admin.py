@@ -49,6 +49,15 @@ async def start_cmd(message: Message, state: FSMContext):
         exp_text = exp.strftime("%d-%m-%Y")
         status_text = "🔴 Suspended" if biz.get("status") == "suspended" else "🟢 Active"
 
+    # 💥 [အရေးကြီးသော ပြင်ဆင်ချက်] - bot_username ကို Token မှတစ်ဆင့် လှမ်းယူခြင်း
+    try:
+        temp_bot = Bot(token=biz['bot_token'])
+        me = await temp_bot.get_me()
+        bot_username = me.username
+        await temp_bot.session.close()
+    except Exception:
+        bot_username = "Unknown"
+
     # 💥 NEW: Subscription Mode ပွင့်/မပွင့် စစ်ဆေးခြင်း
     is_sub_mode = config.get("subscription_mode", False) if config else False
 
@@ -56,7 +65,7 @@ async def start_cmd(message: Message, state: FSMContext):
         # 🟢 Free Mode တွင် ပြသမည့် UI (Payment နှင့် ခလုတ်များ မပြပါ)
         text = (
             f"🏢 Your Bot Information \n\n"
-            f"🤖 Your Bot : @{bot_username}\n\n"
+            f"🤖 Your Bot : @{bot_username}\n"
             f"⏳ Expire Date : {exp_text}\n"
             f"📊 Status : {status_text}\n\n"
             "🎁 လက်ရှိတွင် စနစ်ကို အခမဲ့အသုံးပြုခွင့် ပေးထားပါသည်။"
