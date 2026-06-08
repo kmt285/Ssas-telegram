@@ -554,7 +554,7 @@ async def set_welcome_msg_callback(callback: CallbackQuery, state: FSMContext, b
     if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
         return
 
-    text = "📝 Create Welcome Message!\n\nEnter the first greeting text that customers will see when they press `/start` to enter the Bot.\n\n ပထမဆုံး သင့်bot ထံလာသူများကို မိတ်ဆက်စကားထည့်ရန်ဖြစ်သည်။\n(eg. A warmly welcome to our VIP Channel...)*"
+    text = ("📝 Create Welcome Message!\n\nEnter the first greeting text that customers will see when they press `/start` to enter the Bot.\n\n ပထမဆုံး သင့်bot ထံလာသူများကို မိတ်ဆက်စကားထည့်ရန်ဖြစ်သည်။\n(eg. A warmly welcome to our VIP Channel...)")
     await callback.message.answer(text, parse_mode="Markdown")
     await state.set_state(AdminSetup.waiting_for_welcome_msg)
     await callback.answer()
