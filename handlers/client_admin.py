@@ -16,7 +16,7 @@ client_admin_router = Router()
 def admin_kb(is_owner=False):
     kb = [
         [InlineKeyboardButton(text="📝 Create Welcome Message", callback_data="set_welcome_msg")],
-        [InlineKeyboardButton(text="💳 Create Payment Info", callback_data="set_payment")],
+        [InlineKeyboardButton(text="💳 Add Payment Info", callback_data="set_payment")],
         [InlineKeyboardButton(text="➕ Add Service/ Plan", callback_data="add_service")],
         [InlineKeyboardButton(text="⚙️ Edit / Delete Service/ Plan", callback_data="manage_services")],
         [InlineKeyboardButton(text="📢 Broadcast to Customers", callback_data="broadcast_msg")]
@@ -39,7 +39,7 @@ async def set_payment_callback(callback: CallbackQuery, state: FSMContext, bot: 
     if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
         return
 
-    text = "💳 Sent Payment Info \n(eg - KPay- Ko Ko : 09123456789, Wave- Ko Ko : 09987654321)"
+    text = "💳 Sent Payment Info \n ငွေပေးချေရမည့်အချက်အလက်ထည့်ပါ\n (ဥပမာ- KPay- Ko Ko : 09123456789, Wave- Ko Ko : 09987654321)"
     await callback.message.answer(text)
     await state.set_state(AdminSetup.waiting_for_payment_info)
     await callback.answer()
@@ -64,14 +64,14 @@ async def add_service_callback(callback: CallbackQuery, state: FSMContext, bot: 
     if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
         return
 
-    await callback.message.answer("📝 Sent Service/ Plan Name\n(eg. KoKo VIP Group..etc )")
+    await callback.message.answer("📝 Sent Service/ Plan Name\n သင့်ရဲ့ဝန်ဆောင်မှုနာမည်ရိုက်ထည့်ပါ\n (ဥပမာ- KoKo VIP Group..etc )")
     await state.set_state(AdminSetup.waiting_for_service_name)
     await callback.answer()
 
 @client_admin_router.message(AdminSetup.waiting_for_service_name)
 async def receive_service_name(message: Message, state: FSMContext):
     await state.update_data(service_name=message.text)
-    await message.answer("💰 Sent Price for this Service/ Plan -Number Only \n(eg.  15*****)")
+    await message.answer("💰 Sent Price for this Service/ Plan \n သင့်ဝန်ဆောင်မှု၏ စျေးနှုန်းကို နံပါတ်သီးသန့်ဖြင့်ရိုက်ထည့်ပေးပါ\n(ဥပမာ-  15000)")
     await state.set_state(AdminSetup.waiting_for_service_price)
 
 @client_admin_router.message(AdminSetup.waiting_for_service_price)
@@ -80,7 +80,7 @@ async def receive_service_price(message: Message, state: FSMContext):
         await message.answer("⚠️ Please Sent Number Only! (eg. 15000)")
         return
     await state.update_data(service_price=int(message.text))
-    await message.answer("⏳ Sent Service/ Plan Duration. -Days- \n eg. For 1 month sent 30 \n If Your Service is (Lifetime) Please sent 0 ")
+    await message.answer("⏳ Sent Service/ Plan Duration.\n သင့်ဝန်ဆောင်မှု၏ အချိန်ကာလသတ်မှတ်ပေးပါ။ \n ဥပမာ- တစ်လအတွက် 30 ဟုရိုက်ထည့်ပါ။ တစ်သက်တာအတွက် 0 ဟုရိုက်ထည့်ပါ။")
     await state.set_state(AdminSetup.waiting_for_service_duration)
 
 @client_admin_router.message(AdminSetup.waiting_for_service_duration)
@@ -91,7 +91,7 @@ async def receive_service_duration(message: Message, state: FSMContext):
     await state.update_data(service_duration=int(message.text))
     
     # 💥 Link မမေးမီ Note ကို အရင်မေးမည်
-    await message.answer("📝 About Your Service/ Plan (Note).\n(eg. Daily Update, Contact info, etc.)")
+    await message.answer("📝 About Your Service/ Plan (Note).\n သင့်ဝန်ဆောင်မှုနှင့်ပတ်၍ အကြောင်းအရာရေးပေးပါ \n (ဥပမာ- Daily Update, Contact info, etc.)")
     await state.set_state(AdminSetup.waiting_for_service_note)
 
 @client_admin_router.message(AdminSetup.waiting_for_service_note)
@@ -103,6 +103,9 @@ async def receive_service_note(message: Message, state: FSMContext):
         "No.1 First add this Bot to your Group or Channel as - Admin -\n"
         "Give full admin permission for all features to work! eg. Ban User, Invite User for Link.. etc..\n\n"
         "No.2 Forward any message from that Group/Channel to this Bot.\n\n"
+        "နောက်ဆုံးအဆင့် သင့်ဝန်ဆောင်မှုအား customer များထံအသုံးပြုခွင့်ပေးမည့် Channel/Group များချိတ်ဆက်ခြင်း\n\n"
+        "သင့်ရဲ့ bot ကို သတ်မှတ်ထားတဲ့ Vip channel/group ထဲတွင် Admin အဖြစ်ခန့်ထားပေးပါ \n\n"
+        "ထို channel/group ထဲမှ postတစ်ခုခုကို သင့် botထံသို့ forward လုပ်ပေးပါ\n\n"
     )
     await message.answer(text, parse_mode="Markdown")
     await state.set_state(AdminSetup.waiting_for_service_link)
@@ -116,14 +119,14 @@ async def receive_service_link(message: Message, state: FSMContext, bot: Bot):
         if hasattr(message.forward_origin, 'chat'):
             chat_id_str = str(message.forward_origin.chat.id)
         else:
-            return await message.answer("❌ Error! Only forward messages from within a group or channel, not from users.")
+            return await message.answer("❌ Error! Only forward messages from within a group or channel, not from users.\n သတ်မှတ်ထားတဲ့ group/channel ထဲမှ forward လုပ်ပေးပါ")
             
     # 💥 (သို့မဟုတ်) စာသားတိုက်ရိုက် ရိုက်ထည့်လျှင်
     elif message.text and (message.text.startswith("-100") or message.text.startswith("@")):
         chat_id_str = message.text.strip()
         
     else:
-        return await message.answer("❌ Error! Please make sure to forward the message from the Group/Channel. (Or enter the correct ID starting with -100.))")
+        return await message.answer("❌ Error! Please make sure to forward the message from the Group/Channel.\n သတ်မှတ်ထားတဲ့ group/channel ထဲမှ forward လုပ်ပေးပါ )")
 
     data = await state.get_data()
     
@@ -138,7 +141,7 @@ async def receive_service_link(message: Message, state: FSMContext, bot: Bot):
         status_val = member.status.value if hasattr(member.status, "value") else str(member.status)
         
         if status_val not in ["administrator", "creator"]:
-            return await message.answer("❌ Error! Bot has not been added as an Admin in this Group/Channel yet.**\n\nPlease add the Bot as an Admin first before forwarding the message again.")
+            return await message.answer("❌ Error! Bot has not been added as an Admin in this Group/Channel yet.**\n\nPlease add the Bot as an Admin first before forwarding the message again.\n\n Botအား သတ်မှတ် group/channel တွင် admin ခန့်ထားခြင်းမရှိပါ")
         
         if status_val == "administrator":
             can_invite = getattr(member, "can_invite_users", False)
@@ -268,7 +271,7 @@ async def reject_subscription(callback: CallbackQuery, bot: Bot):
     
     # ဝယ်ယူသူထံ ငြင်းပယ်ကြောင်း ပို့ခြင်း
     user_id = subscription["user_id"]
-    reject_msg = "❌ The transfer Sc you sent could not be validated.\n\nPlease double-check the transfer amount and details, re-select the service, and submit a new slip."
+    reject_msg = "❌ The transfer Screenshot you sent could not be validated.\n\nPlease double-check the transfer amount and details, re-select the service, and submit a new slip."
     
     try:
         await bot.send_message(chat_id=user_id, text=reject_msg, parse_mode="Markdown")
@@ -293,7 +296,7 @@ async def start_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
         return
     
     # 💥 စာသားကိုပါ ပြင်ဆင်လိုက်သည်
-    await callback.message.answer("📢 Now send a text, photo, video, or caption that will be sent to all visitors to the bot.")
+    await callback.message.answer("📢 Now send a text, photo, video, or caption that will be sent to all visitors to the bot.\n\n customer များထံသို့ အသိပေးစာ ကြော်ငြာစာများပေးပို့နိုင်သည်။")
     await state.set_state(AdminBroadcast.waiting_for_msg)
     await callback.answer()
 
@@ -403,7 +406,7 @@ async def delete_service(callback: CallbackQuery):
 async def ask_edit_name(callback: CallbackQuery, state: FSMContext):
     service_id = callback.data.split("_")[2]
     await state.update_data(edit_svc_id=service_id)
-    await callback.message.answer("✏️ Enter the new name of the service/ plan.")
+    await callback.message.answer("✏️ Enter the new name of the service/ plan.\n\n ဝန်ဆောင်မှုနာမည်အသစ်ထည့်ပါ")
     await state.set_state(EditService.waiting_for_new_name)
     await callback.answer()
 
@@ -419,7 +422,7 @@ async def save_new_name(message: Message, state: FSMContext):
 async def ask_edit_price(callback: CallbackQuery, state: FSMContext):
     service_id = callback.data.split("_")[2]
     await state.update_data(edit_svc_id=service_id)
-    await callback.message.answer("✏️ Enter the new price of the service/ plan in numbers only.\n(eg. 20000)")
+    await callback.message.answer("✏️ Enter the new price of the service/ plan in numbers only.\n\n ဝန်ဆောင်မှု၏ စျေးနှုန်းအသစ်ရိုက်ထည့်ပါ")
     await state.set_state(EditService.waiting_for_new_price)
     await callback.answer()
 
@@ -495,7 +498,7 @@ async def generate_sub_admin_code(callback: CallbackQuery, bot: Bot):
         "➕ <b>Sub-Admin Invite Code</b>\n\n"
         "အCopy the code below and send it to the person you want to add as an Sub-Admin.\n\n"
         f"<code>{random_code}</code>\n\n"
-        "<i>(Once that person enters the above code into this Bot, the Bot will automatically capture their ID and assign them as an Sub-Admin.)</i>"
+        "<i>(Once that person enters the above code into this Bot, the Bot will automatically capture their ID and assign them as an Sub-Admin.)\n\n အထက်ပါ ကုတ်ကို admin အကူအဖြစ်ထားရှိချင်သူအား ပို့ပေးပါ။ ထိုသူမှ သင်၏ botတွင် အထက်ပါကုတ်ကို ရိုက်ထည့်ခိုင်းပါ။</i>"
     )
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -550,7 +553,7 @@ async def set_welcome_msg_callback(callback: CallbackQuery, state: FSMContext, b
     if callback.from_user.id != owner_id and callback.from_user.id not in sub_admins:
         return
 
-    text = "📝 Create Welcome Message!\n\nEnter the first greeting text that customers will see when they press `/start` to enter the Bot.\n*(eg. A warmly welcome to our VIP Channel...)*"
+    text = "📝 Create Welcome Message!\n\nEnter the first greeting text that customers will see when they press `/start` to enter the Bot.\n\n ပထမဆုံး သင့်bot ထံလာသူများကို မိတ်ဆက်စကားထည့်ရန်ဖြစ်သည်။\n(eg. A warmly welcome to our VIP Channel...)*"
     await callback.message.answer(text, parse_mode="Markdown")
     await state.set_state(AdminSetup.waiting_for_welcome_msg)
     await callback.answer()
