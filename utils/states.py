@@ -22,6 +22,7 @@ class EditService(StatesGroup):
     waiting_for_new_name = State()
     waiting_for_new_price = State()
     waiting_for_new_note = State()
+    waiting_for_new_channel = State()
 
 class MasterSetup(StatesGroup):
     waiting_for_bot_token = State()
