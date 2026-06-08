@@ -603,3 +603,93 @@ async def disable_subscription_transition(callback: CallbackQuery, bot: Bot):
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Back", callback_data="show_stats")]])
     await callback.message.edit_text(success_text, reply_markup=kb, parse_mode="Markdown")
+
+# ==========================================
+# 📥 Manual Channel Content Backup (Super Admin Only)
+# ==========================================
+@master_router.message(Command("backup"))
+async def run_backup_cmd(message: Message, bot: Bot):
+    if message.from_user.id not in SUPER_ADMINS: return
+
+    # Command Format စစ်ဆေးခြင်း: /backup [source_id] [target_id] [start_id] [end_id]
+    args = message.text.split()
+    if len(args) != 5:
+        text = "❌ Format မှားယွင်းနေပါသည်။\nအသုံးပြုရန်: `/backup -100123... -100456... 1 500`"
+        return await message.answer(text, parse_mode="Markdown")
+    
+    source_id = args[1].strip()
+    target_id = args[2].strip()
+    
+    try:
+        start_id = int(args[3])
+        end_id = int(args[4])
+    except ValueError:
+        return await message.answer("❌ Message ID များသည် ဂဏန်းများသာ ဖြစ်ရပါမည်။")
+
+    if start_id > end_id:
+        return await message.answer("❌ start_msg_id သည် end_msg_id ထက် ငယ်ရပါမည်။")
+
+    # Source Channel နှင့် ချိတ်ဆက်ထားသော Client Bot ကို Database တွင် ရှာဖွေခြင်း
+    service = await db.services.find_one({"link": {"$regex": source_id}})
+    if not service:
+        return await message.answer("❌ Database ထဲတွင် ထို Source Channel ID နှင့် ချိတ်ဆက်ထားသော လုပ်ငန်းရှင်၏ Bot ကို ရှာမတွေ့ပါ။")
+
+    client_token = service['bot_token']
+    
+    msg_text = (
+        f"⏳ **Backup စတင်နေပါပြီ...**\n\n"
+        f"📥 Source: `{source_id}`\n"
+        f"📤 Target: `{target_id}`\n"
+        f"🔢 Messages: `{start_id}` to `{end_id}`\n\n"
+        f"(ဤလုပ်ငန်းစဉ်သည် Background တွင် အလုပ်လုပ်နေမည်ဖြစ်ပြီး Client Bot များကို လေးလံသွားစေမည် မဟုတ်ပါ။ ပြီးစီးပါက အကြောင်းကြားပေးပါမည်။)"
+    )
+    await message.answer(msg_text, parse_mode="Markdown")
+
+    # နောက်ကွယ် (Background) တွင် အလုပ်လုပ်စေရန် Task အသစ်ခွဲ၍ Run ခြင်း
+    asyncio.create_task(
+        perform_background_backup(
+            master_bot=bot,
+            admin_id=message.from_user.id,
+            client_token=client_token,
+            source_id=source_id,
+            target_id=target_id,
+            start_id=start_id,
+            end_id=end_id
+        )
+    )
+
+# 🔄 Background တွင် အလုပ်လုပ်မည့် Function
+async def perform_background_backup(master_bot: Bot, admin_id: int, client_token: str, source_id: str, target_id: str, start_id: int, end_id: int):
+    client_bot = Bot(token=client_token)
+    success_count = 0
+    fail_count = 0
+    
+    for msg_id in range(start_id, end_id + 1):
+        try:
+            await client_bot.copy_message(
+                chat_id=target_id,
+                from_chat_id=source_id,
+                message_id=msg_id
+            )
+            success_count += 1
+        except Exception as e:
+            # စာဖျက်သွားခြင်း သို့မဟုတ် Target Channel တွင် ပို့ခွင့်မရှိခြင်းတို့ကြောင့် ဖြစ်နိုင်သည်
+            fail_count += 1
+        
+        # 💥 အရေးကြီးဆုံး: Telegram Rate Limit မမိစေရန်နှင့် Server မလေးစေရန် ၂ စက္ကန့် စောင့်မည်
+        await asyncio.sleep(2.0) 
+
+    await client_bot.session.close()
+
+    # Super Admin ထံသို့ ပြီးစီးကြောင်း အစီရင်ခံစာ ပြန်ပို့မည်
+    report = (
+        f"✅ **Backup လုပ်ငန်းစဉ် ပြီးဆုံးပါပြီ!**\n\n"
+        f"📥 Source: `{source_id}`\n"
+        f"📤 Target: `{target_id}`\n"
+        f"✔️ အောင်မြင်: **{success_count}** posts\n"
+        f"❌ မအောင်မြင်: **{fail_count}** posts (ဖျက်ထားသောစာများ/ ID ကျော်သွားခြင်းများ)"
+    )
+    try:
+        await master_bot.send_message(chat_id=admin_id, text=report, parse_mode="Markdown")
+    except:
+        pass
