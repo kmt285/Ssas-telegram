@@ -9,6 +9,7 @@ from bson.objectid import ObjectId
 from core.database import db
 from utils.states import MasterSetup
 from utils.states import MasterBooking
+from utils.states import MasterBroadcast
 
 master_router = Router()
 
@@ -180,6 +181,7 @@ async def view_system_stats_cb(callback: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏢 လုပ်ငန်းရှင်များစာရင်း အသေးစိတ်ကြည့်ရန်", callback_data="view_businesses")],
         [InlineKeyboardButton(text=sub_btn_text, callback_data=sub_callback)],
+        [InlineKeyboardButton(text="📢 လုပ်ငန်းရှင်များထံ Broadcast ပို့ရန်", callback_data="master_broadcast")],
         [InlineKeyboardButton(text="🧹 Database အမှိုက်များ ရှင်းလင်းမည်", callback_data="clean_database")]
     ])
     await callback.message.edit_text(stats_text, reply_markup=kb, parse_mode="Markdown")
@@ -691,5 +693,72 @@ async def perform_background_backup(master_bot: Bot, admin_id: int, client_token
     )
     try:
         await master_bot.send_message(chat_id=admin_id, text=report, parse_mode="Markdown")
+    except:
+        pass
+
+
+# ==========================================
+# 📢 Super Admin Broadcast System (လုပ်ငန်းရှင်များထံ အသိပေးစာပို့ခြင်း)
+# ==========================================
+@master_router.callback_query(F.data == "master_broadcast")
+async def master_broadcast_btn(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in SUPER_ADMINS: return
+    
+    text = (
+        "📢 **လုပ်ငန်းရှင်များထံ Broadcast ပို့ရန်**\n\n"
+        "စနစ်ကို အသုံးပြုနေသော လုပ်ငန်းရှင်အားလုံးထံသို့ ပေးပို့လိုသော စာသား၊ ပုံ၊ ဗီဒီယို (သို့) မည်သည့် Media ကိုမဆို ယခု ပေးပို့ပါ။"
+    )
+    await callback.message.answer(text, parse_mode="Markdown")
+    await state.set_state(MasterBroadcast.waiting_for_msg)
+    await callback.answer()
+
+@master_router.message(MasterBroadcast.waiting_for_msg)
+async def process_master_broadcast(message: Message, state: FSMContext, bot: Bot):
+    await state.clear()
+    await message.answer("⏳ **Broadcast စတင်ပို့ဆောင်နေပါသည်...**\n(ဤလုပ်ငန်းစဉ်သည် Background တွင် အလုပ်လုပ်နေမည်ဖြစ်ပြီး ပြီးဆုံးပါက အကြောင်းကြားပေးပါမည်။)")
+    
+    # 💥 Bot မလေးစေရန် Task အသစ်ခွဲ၍ Background တွင် Run မည်
+    asyncio.create_task(
+        run_master_broadcast(
+            bot=bot, 
+            from_chat_id=message.chat.id, 
+            message_id=message.message_id, 
+            admin_id=message.from_user.id
+        )
+    )
+
+# 🔄 Background တွင် အလုပ်လုပ်မည့် Function
+async def run_master_broadcast(bot: Bot, from_chat_id: int, message_id: int, admin_id: int):
+    # Database မှ လုပ်ငန်းရှင်များ၏ ID အားလုံးကို ထုတ်ယူမည် (ID ထပ်နေတာတွေ မပါအောင် distinct သုံးမည်)
+    owner_ids = await db.businesses.distinct("owner_id")
+    
+    success_count = 0
+    fail_count = 0
+    
+    for owner_id in owner_ids:
+        try:
+            # 💥 copy_message သုံးခြင်းဖြင့် Media (ပုံ၊ ဗီဒီယို၊ ဖိုင်) အစုံအလင်ကို Forward tag မပါဘဲ ပို့နိုင်သည်
+            await bot.copy_message(
+                chat_id=owner_id,
+                from_chat_id=from_chat_id,
+                message_id=message_id
+            )
+            success_count += 1
+        except Exception:
+            # User မှ Bot ကို Block ထားခြင်း (သို့) အကောင့် ဖျက်သွားခြင်းတို့ကြောင့် Fail ဖြစ်နိုင်သည်
+            fail_count += 1
+        
+        # 💥 Telegram Flood Wait မဖြစ်စေရန် 0.05 စက္ကန့် စောင့်မည် (တစ်စက္ကန့်လျှင် အများဆုံး အစောင် ၂၀ နှုန်းဖြင့် လုံခြုံစွာ ပို့မည်)
+        await asyncio.sleep(0.05)
+        
+    # ပို့ဆောင်ပြီးစီးကြောင်း Super Admin ထံသို့ အစီရင်ခံစာ ပြန်ပို့မည်
+    report = (
+        f"✅ **Broadcast ပို့ဆောင်ခြင်း ပြီးဆုံးပါပြီ!**\n\n"
+        f"📊 **အကျဉ်းချုပ် အခြေအနေ:**\n"
+        f"✔️ အောင်မြင်စွာ ရရှိသူ: **{success_count}** ဦး\n"
+        f"❌ မအောင်မြင်သူ (Bot ကို Block ထားသူများ): **{fail_count}** ဦး"
+    )
+    try:
+        await bot.send_message(chat_id=admin_id, text=report, parse_mode="Markdown")
     except:
         pass
