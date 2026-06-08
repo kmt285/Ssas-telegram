@@ -383,6 +383,7 @@ async def show_service_detail(callback: CallbackQuery):
         [InlineKeyboardButton(text="✏️ Edit Service/ Plan Name", callback_data=f"edit_name_{service_id}")],
         [InlineKeyboardButton(text="✏️ Edit Price", callback_data=f"edit_price_{service_id}")],
         [InlineKeyboardButton(text="✏️ Edit Note", callback_data=f"edit_note_{service_id}")],
+        [InlineKeyboardButton(text="🔄 Migrate to New Channel (ချန်နယ်အသစ်သို့ ပြောင်းမည်)", callback_data=f"migrate_svc_{service_id}")],
         [InlineKeyboardButton(text="❌ Delete Permanently!", callback_data=f"delete_svc_{service_id}")],
         [InlineKeyboardButton(text="🔙 Back", callback_data="manage_services")]
     ])
@@ -565,4 +566,119 @@ async def receive_welcome_msg(message: Message, bot: Bot, state: FSMContext):
         {"$set": {"welcome_msg": message.text}} # Database သို့ welcome_msg အဖြစ် သိမ်းဆည်းခြင်း
     )
     await message.answer("✅ Welcome Message Created Successfully! \nClick /start to return to the Admin Panel.")
+    await state.clear()
+
+
+# ==========================================
+# 🔄 Channel Migration System (ချန်နယ်ပျက်သွားပါက အသစ်သို့ ပြောင်းရွှေ့ခြင်း)
+# ==========================================
+@client_admin_router.callback_query(F.data.startswith("migrate_svc_"))
+async def ask_migration_channel(callback: CallbackQuery, state: FSMContext):
+    service_id = callback.data.split("_")[2]
+    await state.update_data(migrate_svc_id=service_id)
+    
+    text = (
+        "🔄 **Migrate to New Channel (ချန်နယ်အသစ်သို့ ပြောင်းရွှေ့ခြင်း)**\n\n"
+        "ဤစနစ်သည် သင့်၏ လက်ရှိ Group/Channel ပျက်သွားပါက၊ သက်တမ်းကျန်သေးသော (Active) ဖြစ်နေသည့် Customer များအားလုံးထံသို့ Channel အသစ်၏ လင့်ခ်ကို အလိုအလျောက် ပေးပို့ပေးမည့် စနစ်ဖြစ်ပါသည်။\n\n"
+        "**လုပ်ဆောင်ရမည့် အဆင့်များ-**\n"
+        "၁။ Channel / Group အသစ်တစ်ခု တည်ဆောက်ပြီး ဤ Bot ကို Admin အပြည့်အဝပေးပါ။\n"
+        "၂။ ထို Channel / Group အသစ်ထဲမှ စာတစ်ကြောင်းကို ဤနေရာသို့ **Forward** လုပ်ပို့ပေးပါ။"
+    )
+    await callback.message.answer(text, parse_mode="Markdown")
+    await state.set_state(EditService.waiting_for_new_channel)
+    await callback.answer()
+
+@client_admin_router.message(EditService.waiting_for_new_channel)
+async def process_channel_migration(message: Message, state: FSMContext, bot: Bot):
+    chat_id_str = None
+    
+    # Forward လုပ်လာသော စာဖြစ်လျှင် ID အား ဆွဲယူမည်
+    if message.forward_origin:
+        if hasattr(message.forward_origin, 'chat'):
+            chat_id_str = str(message.forward_origin.chat.id)
+        else:
+            return await message.answer("❌ Error! Only forward messages from within a group or channel.")
+    # စာသားတိုက်ရိုက် ရိုက်ထည့်လျှင်
+    elif message.text and (message.text.startswith("-100") or message.text.startswith("@")):
+        chat_id_str = message.text.strip()
+    else:
+        return await message.answer("❌ Error! Please forward a message from the new Group/Channel.")
+
+    data = await state.get_data()
+    service_id = data.get("migrate_svc_id")
+    
+    await message.answer("⏳ Checking permissions and migrating users... Please wait.")
+    
+    # ၁။ Bot အား Admin ခန့်ထားခြင်း ရှိ/မရှိ စစ်ဆေးခြင်း
+    try:
+        target_chat_id = int(chat_id_str) if chat_id_str.lstrip('-').isdigit() else chat_id_str
+        chat = await bot.get_chat(target_chat_id)
+        bot_user = await bot.get_me()
+        member = await bot.get_chat_member(chat_id=target_chat_id, user_id=bot_user.id)
+        
+        status_val = member.status.value if hasattr(member.status, "value") else str(member.status)
+        
+        if status_val not in ["administrator", "creator"]:
+            return await message.answer("❌ Error! Bot is not an Admin in the new Group/Channel yet.")
+            
+    except Exception as e:
+        return await message.answer(f"❌ Error! Unable to verify the new channel. Make sure the bot is added as Admin. ({str(e)})")
+        
+    # ၂။ Database တွင် Service ၏ Link အဟောင်းကို အသစ်ဖြင့် အစားထိုးမည်
+    await db.services.update_one(
+        {"_id": ObjectId(service_id)},
+        {"$set": {"link": chat_id_str}}
+    )
+    
+    # ၃။ လက်ရှိ Service အား ဝယ်ယူထားသော Active User များကို ဆွဲထုတ်မည်
+    active_subs = await db.subscriptions.find({"service_id": service_id, "status": "active"}).to_list(length=5000)
+    
+    if not active_subs:
+        await message.answer("✅ Channel ID updated successfully. (There are no active users to migrate right now).")
+        return await state.clear()
+        
+    # ၄။ User များအတွက် Invite Link အသစ် ဖန်တီးမည်
+    try:
+        chat_member_link = await bot.create_chat_invite_link(
+            chat_id=target_chat_id, 
+            creates_join_request=True, 
+            name="Migration Link"
+        )
+        invite_link = chat_member_link.invite_link
+    except Exception as e:
+        return await message.answer(f"❌ Error creating invite link: {e}")
+
+    # ၅။ Active User များအားလုံးထံသို့ လင့်ခ်များ အလိုအလျောက် လိုက်ပို့မည်
+    success_count = 0
+    fail_count = 0
+    
+    service = await db.services.find_one({"_id": ObjectId(service_id)})
+    service_name = service.get("name", "our VIP Service")
+    
+    migration_msg = (
+        f"📢 **Channel Migration Notice (အရေးကြီး အသိပေးချက်)**\n\n"
+        f"လူကြီးမင်း ဝယ်ယူထားသော **{service_name}** ၏ ချန်နယ်ဟောင်းမှာ အကြောင်းအမျိုးမျိုးကြောင့် ပျက်ယွင်းသွားပါသဖြင့် ချန်နယ်အသစ်သို့ အောက်ပါလင့်ခ်မှတစ်ဆင့် ပြန်လည်ဝင်ရောက်ပေးပါရန် အသိပေးအပ်ပါသည်။\n\n"
+        f"*(လူကြီးမင်း၏ ကျန်ရှိသော သက်တမ်းများမှာ မူလအတိုင်း ဆက်လက် တည်ရှိနေမည်ဖြစ်ပါသည်။)*"
+    )
+    user_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Join New Channel", url=invite_link)]
+    ])
+
+    for sub in active_subs:
+        user_id = sub["user_id"]
+        try:
+            await bot.send_message(chat_id=user_id, text=migration_msg, reply_markup=user_kb, parse_mode="Markdown")
+            success_count += 1
+            await asyncio.sleep(0.05) # Rate Limit မမိစေရန် ဖြည်းဖြည်းချင်းပို့မည်
+        except Exception:
+            fail_count += 1 # User က Bot ကို Block ထားလျှင် Fail ဖြစ်မည်
+            
+    final_text = (
+        f"✅ **Migration Successfully Completed!**\n\n"
+        f"Group/Channel အသစ်သို့ အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီ။\n"
+        f"👥 Active Users ထံသို့ လင့်ခ်ပေးပို့မှု အခြေအနေ:\n"
+        f"✔️ အောင်မြင်: **{success_count}** ဦး\n"
+        f"❌ မအောင်မြင် (Bot ကို Block ထားသူများ): **{fail_count}** ဦး"
+    )
+    await message.answer(final_text, parse_mode="Markdown")
     await state.clear()
