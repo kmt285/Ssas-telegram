@@ -37,7 +37,7 @@ async def start_cmd(message: Message, state: FSMContext):
     
     # Bot မချိတ်ရသေးသူ ဖြစ်ပါက
     if not biz:
-        text = "🎉မင်္ဂလာပါခင်ဗျာ ကျွန်တော်တို့ Bot Myanmar Community မှ ကြိုဆိုပါတယ်။\n\nလူကြီးမင်း၏ ကိုယ်ပိုင် VIP Bot ကို ယခုဘဲ စတင်ဖန်တီးလိုက်ပါ။"
+        text = "🎉မင်္ဂလာပါခင်ဗျာ ကျွန်တော်တို့ Bot Myanmar Community မှ ကြိုဆိုပါတယ်။\n\nလူကြီးမင်း၏ ကိုယ်ပိုင် VIP Bot ကို ယခုဘဲ စတင်ဖန်တီးလိုက်ပါ။\n\n အသုံးပြုနည်းလမ်းညွှန်ကြည့်ရန် - https://drive.google.com/file/d/1TdJB0h3lfXcfWrtrsmGy2Q7c596tPZ4f/view?usp=sharing "
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="➕ Bot အသစ် ဖန်တီးရန်", callback_data="create_new_bot")]])
         return await message.answer(text, reply_markup=kb, parse_mode="Markdown")
         
