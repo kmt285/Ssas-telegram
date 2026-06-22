@@ -754,6 +754,8 @@ async def generate_file_link(message: Message, bot: Bot):
 
     # Unique Code ၆ လုံး ဖန်တီးမည် (ဥပမာ - X7A9KQ)
     unique_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    caption_text = message.html_text if message.caption else None
     
     # Database (files collection) သို့ မှတ်သားမည်
     await db.files.insert_one({
