@@ -59,14 +59,18 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext, comman
         f_caption = file_data.get("caption")
         
         try:
-            if f_type == "document": await message.answer_document(document=f_id_to_send)
-            elif f_type == "video": await message.answer_video(video=f_id_to_send)
-            elif f_type == "photo": await message.answer_photo(photo=f_id_to_send)
-            elif f_type == "audio": await message.answer_audio(audio=f_id_to_send)
+            # 💥 အောက်ပါလိုင်းများတွင် caption=f_caption အတိအကျ ပါ/မပါ သေချာစစ်ဆေးပါ
+            if f_type == "document": 
+                await message.answer_document(document=f_id_to_send, caption=f_caption, parse_mode="HTML")
+            elif f_type == "video": 
+                await message.answer_video(video=f_id_to_send, caption=f_caption, parse_mode="HTML")
+            elif f_type == "photo": 
+                await message.answer_photo(photo=f_id_to_send, caption=f_caption, parse_mode="HTML")
+            elif f_type == "audio": 
+                await message.answer_audio(audio=f_id_to_send, caption=f_caption, parse_mode="HTML")
             return
         except Exception:
             return await message.answer("❌ ဖိုင်ပေးပို့ရာတွင် အမှားအယွင်းဖြစ်ပေါ်ခဲ့ပါသည်။")
-
     # ==========================================
     owner_id = business.get("owner_id")
     sub_admins = business.get("sub_admins", [])
