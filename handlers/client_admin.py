@@ -7,6 +7,8 @@ from core.database import db
 from utils.states import AdminSetup, AdminBroadcast, EditService
 import asyncio
 import random
+import string
+from aiogram.fsm.state import default_state
 
 client_admin_router = Router()
 
@@ -19,7 +21,8 @@ def admin_kb(is_owner=False):
         [InlineKeyboardButton(text="💳 Add Payment Info", callback_data="set_payment")],
         [InlineKeyboardButton(text="➕ Add Service/ Plan", callback_data="add_service")],
         [InlineKeyboardButton(text="⚙️ Edit / Delete Service/ Plan", callback_data="manage_services")],
-        [InlineKeyboardButton(text="📢 Broadcast to Customers", callback_data="broadcast_msg")]
+        [InlineKeyboardButton(text="📢 Broadcast to Customers", callback_data="broadcast_msg")],
+        [InlineKeyboardButton(text="🔐 Set Force Sub Channel", callback_data="set_force_sub")]
     ]
     # ပိုင်ရှင် (Owner) ဖြစ်မှသာ Sub-Admin ခလုတ်ကို ပြမည်
     if is_owner:
@@ -682,3 +685,89 @@ async def process_channel_migration(message: Message, state: FSMContext, bot: Bo
     )
     await message.answer(final_text, parse_mode="Markdown")
     await state.clear()
+
+
+# 🔐 Force Sub Channel သတ်မှတ်ခြင်း
+# ==========================================
+@client_admin_router.callback_query(F.data == "set_force_sub")
+async def ask_force_sub(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    business = await db.businesses.find_one({"bot_token": bot.token})
+    if callback.from_user.id != business.get("owner_id") and callback.from_user.id not in business.get("sub_admins", []): return
+    
+    text = (
+        "🔐 **Force Sub Channel သတ်မှတ်ရန်**\n\n"
+        "Customer များ File Link နှိပ်ပါက မဖြစ်မနေ Join ရမည့် Channel ကို သတ်မှတ်ရပါမည်။\n\n"
+        "**အဆင့် (၁)** - သင့် Channel ထဲသို့ ဤ Bot ကို Admin အဖြစ် ထည့်ပေးပါ။\n"
+        "**အဆင့် (၂)** - ထို Channel ၏ Invite Link ကို ဤနေရာတွင် ရိုက်ထည့်ပါ။ (ဥပမာ - https://t.me/my_channel)\n"
+        "**အဆင့် (၃)** - ထို Channel ၏ ID (ဥပမာ - -100123456) ကိုပါ တစ်ဆက်တည်း ပေးပို့ပါ။\n\n"
+        "📌 *ပုံစံ: https://t.me/mychannel | -100123456789*"
+    )
+    await callback.message.answer(text, parse_mode="Markdown")
+    await state.set_state(AdminSetup.waiting_for_force_sub)
+    await callback.answer()
+
+@client_admin_router.message(AdminSetup.waiting_for_force_sub)
+async def save_force_sub(message: Message, state: FSMContext, bot: Bot):
+    if "|" not in message.text:
+        return await message.answer("❌ ပုံစံမှားယွင်းနေပါသည်။ (ဥပမာ - https://t.me/mychannel | -100123456789) ပုံစံဖြင့် ပြန်ပို့ပါ။")
+    
+    parts = message.text.split("|")
+    f_link = parts[0].strip()
+    f_id = parts[1].strip()
+    
+    await db.businesses.update_one(
+        {"bot_token": bot.token},
+        {"$set": {"force_sub_link": f_link, "force_sub_id": f_id}}
+    )
+    await message.answer("✅ Force Sub Channel အောင်မြင်စွာ မှတ်သားပြီးပါပြီ!")
+    await state.clear()
+
+# ==========================================
+# 📥 File to Link Generator (ဖိုင်ပို့လျှင် လင့်ခ်ထုတ်ပေးခြင်း)
+# ==========================================
+@client_admin_router.message(F.content_type.in_({'document', 'video', 'audio', 'photo'}), default_state)
+async def generate_file_link(message: Message, bot: Bot):
+    # Admin ဟုတ်မဟုတ် အရင်စစ်မည်
+    business = await db.businesses.find_one({"bot_token": bot.token})
+    if not business or (message.from_user.id != business.get("owner_id") and message.from_user.id not in business.get("sub_admins", [])): 
+        return
+
+    # File အမျိုးအစားနှင့် ID ကို ခွဲခြားယူမည်
+    file_id = None
+    file_type = None
+    
+    if message.document:
+        file_id = message.document.file_id
+        file_type = "document"
+    elif message.video:
+        file_id = message.video.file_id
+        file_type = "video"
+    elif message.audio:
+        file_id = message.audio.file_id
+        file_type = "audio"
+    elif message.photo:
+        file_id = message.photo[-1].file_id
+        file_type = "photo"
+
+    if not file_id: return
+
+    # Unique Code ၆ လုံး ဖန်တီးမည် (ဥပမာ - X7A9KQ)
+    unique_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    
+    # Database (files collection) သို့ မှတ်သားမည်
+    await db.files.insert_one({
+        "bot_token": bot.token,
+        "code": unique_code,
+        "file_id": file_id,
+        "type": file_type,
+        "created_at": message.date
+    })
+    
+    bot_me = await bot.get_me()
+    deep_link = f"https://t.me/{bot_me.username}?start=file_{unique_code}"
+    
+    success_msg = (
+        f"✅ Generate Link Successful!\n\n"
+        f"🔗 File Link :\n`{deep_link}`\n\n"
+    )
+    await message.answer(success_msg, parse_mode="Markdown")
