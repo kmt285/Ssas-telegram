@@ -1,6 +1,6 @@
 from aiogram import Router, Bot, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ChatJoinRequest
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
 from bson.objectid import ObjectId
 from core.database import db
@@ -13,18 +13,60 @@ import string
 client_router = Router()
 
 @client_router.message(CommandStart())
-async def client_start_cmd(message: Message, bot: Bot, state: FSMContext):
+async def client_start_cmd(message: Message, bot: Bot, state: FSMContext, command: CommandObject): # 💥 command ထပ်ထည့်ပါ
     await state.clear() 
     
     business = await db.businesses.find_one({"bot_token": bot.token})
-    if not business:
-        return
+    if not business: return
 
     # Super Admin မှ ယာယီရပ်ဆိုင်းထားခြင်း ရှိ/မရှိ စစ်ဆေးခြင်း
     if business.get("status") == "suspended":
-        await message.answer("🚫 This Bot has been temporarily suspended by the Platform.\n\nFor more information, please contact the Platform Admin @botdistribution.")
-        return
+        return await message.answer("🚫 This Bot has been temporarily suspended by the Platform.\n\nFor more information, please contact the Platform Admin.")
 
+    # ==========================================
+    # 📥 File Deep Link ဖြင့် ဝင်လာခြင်း ဟုတ်/မဟုတ် စစ်ဆေးခြင်း
+    # ==========================================
+    args = command.args
+    if args and args.startswith("file_"):
+        file_code = args.split("_")[1]
+        
+        # Force Sub စစ်ဆေးခြင်း
+        f_id = business.get("force_sub_id")
+        f_link = business.get("force_sub_link")
+        
+        if f_id and f_link:
+            try:
+                member = await bot.get_chat_member(chat_id=f_id, user_id=message.from_user.id)
+                status_val = member.status.value if hasattr(member.status, "value") else str(member.status)
+                
+                if status_val in ["left", "kicked", "restricted"]:
+                    # Join မလုပ်ရသေးလျှင် Join ခိုင်းမည်
+                    kb = InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="🚀 Join Channel First", url=f_link)],
+                        [InlineKeyboardButton(text="✅ Check & Get File", url=f"https://t.me/{(await bot.get_me()).username}?start=file_{file_code}")]
+                    ])
+                    return await message.answer("⚠️ **ဖိုင်ကို ရယူရန် အောက်ပါ Channel ကို အရင် Join ပေးပါ။** Join ပြီးပါက အောက်က Check ခလုတ်ကို ပြန်နှိပ်ပါ။", reply_markup=kb, parse_mode="Markdown")
+            except Exception as e:
+                pass # Bot ကို Channel တွင် Admin မပေးထားလျှင် (သို့) ID မှားနေလျှင် အလိုအလျောက် ကျော်သွားမည်
+        
+        # File ကို Database မှ ရှာဖွေပြီး ပေးပို့ခြင်း
+        file_data = await db.files.find_one({"bot_token": bot.token, "code": file_code})
+        if not file_data:
+            return await message.answer("❌ ဤဖိုင်မှာ ဖျက်သိမ်းခံလိုက်ရပါပြီ (သို့မဟုတ်) လင့်ခ်မှားယွင်းနေပါသည်။")
+            
+        f_type = file_data["type"]
+        f_id_to_send = file_data["file_id"]
+        
+        try:
+            if f_type == "document": await message.answer_document(document=f_id_to_send)
+            elif f_type == "video": await message.answer_video(video=f_id_to_send)
+            elif f_type == "photo": await message.answer_photo(photo=f_id_to_send)
+            elif f_type == "audio": await message.answer_audio(audio=f_id_to_send)
+            return
+        except Exception:
+            return await message.answer("❌ ဖိုင်ပေးပို့ရာတွင် အမှားအယွင်းဖြစ်ပေါ်ခဲ့ပါသည်။")
+
+    # ==========================================
     owner_id = business.get("owner_id")
     sub_admins = business.get("sub_admins", [])
     
