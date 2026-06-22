@@ -45,7 +45,7 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext, comman
                         [InlineKeyboardButton(text="🚀 Join Channel First", url=f_link)],
                         [InlineKeyboardButton(text="✅ Check & Get File", url=f"https://t.me/{(await bot.get_me()).username}?start=file_{file_code}")]
                     ])
-                    return await message.answer("⚠️ **ဖိုင်ကို ရယူရန် အောက်ပါ Channel ကို အရင် Join ပေးပါ။** Join ပြီးပါက အောက်က Check ခလုတ်ကို ပြန်နှိပ်ပါ။", reply_markup=kb, parse_mode="Markdown")
+                    return await message.answer("⚠️ <b>ဖိုင်ကို ရယူရန် အောက်ပါ Channel ကို အရင် Join ပေးပါ။</b> Join ပြီးပါက အောက်က Check ခလုတ်ကို ပြန်နှိပ်ပါ။", reply_markup=kb, parse_mode="HTML")
             except Exception as e:
                 pass # Bot ကို Channel တွင် Admin မပေးထားလျှင် (သို့) ID မှားနေလျှင် အလိုအလျောက် ကျော်သွားမည်
         
