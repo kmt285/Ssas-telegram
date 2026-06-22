@@ -56,6 +56,7 @@ async def client_start_cmd(message: Message, bot: Bot, state: FSMContext, comman
             
         f_type = file_data["type"]
         f_id_to_send = file_data["file_id"]
+        f_caption = file_data.get("caption")
         
         try:
             if f_type == "document": await message.answer_document(document=f_id_to_send)
