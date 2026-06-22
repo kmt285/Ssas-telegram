@@ -687,6 +687,7 @@ async def process_channel_migration(message: Message, state: FSMContext, bot: Bo
     await state.clear()
 
 
+# ==========================================
 # 🔐 Force Sub Channel သတ်မှတ်ခြင်း
 # ==========================================
 @client_admin_router.callback_query(F.data == "set_force_sub")
@@ -695,14 +696,14 @@ async def ask_force_sub(callback: CallbackQuery, state: FSMContext, bot: Bot):
     if callback.from_user.id != business.get("owner_id") and callback.from_user.id not in business.get("sub_admins", []): return
     
     text = (
-        "🔐 **Force Sub Channel သတ်မှတ်ရန်**\n\n"
+        "🔐 <b>Force Sub Channel သတ်မှတ်ရန်</b>\n\n"
         "Customer များ File Link နှိပ်ပါက မဖြစ်မနေ Join ရမည့် Channel ကို သတ်မှတ်ရပါမည်။\n\n"
-        "**အဆင့် (၁)** - သင့် Channel ထဲသို့ ဤ Bot ကို Admin အဖြစ် ထည့်ပေးပါ။\n"
-        "**အဆင့် (၂)** - ထို Channel ၏ Invite Link ကို ဤနေရာတွင် ရိုက်ထည့်ပါ။ (ဥပမာ - https://t.me/my_channel)\n"
-        "**အဆင့် (၃)** - ထို Channel ၏ ID (ဥပမာ - -100123456) ကိုပါ တစ်ဆက်တည်း ပေးပို့ပါ။\n\n"
-        "📌 *ပုံစံ: https://t.me/mychannel | -100123456789*"
+        "<b>အဆင့် (၁)</b> - သင့် Channel ထဲသို့ ဤ Bot ကို Admin အဖြစ် ထည့်ပေးပါ။\n"
+        "<b>အဆင့် (၂)</b> - ထို Channel ၏ Invite Link ကို ဤနေရာတွင် ရိုက်ထည့်ပါ။ (ဥပမာ - https://t.me/mychannel)\n"
+        "<b>အဆင့် (၃)</b> - ထို Channel ၏ ID (ဥပမာ - -100123456) ကိုပါ တစ်ဆက်တည်း ပေးပို့ပါ။\n\n"
+        "📌 <i>ပုံစံ: https://t.me/mychannel | -100123456789</i>"
     )
-    await callback.message.answer(text, parse_mode="Markdown")
+    await callback.message.answer(text, parse_mode="HTML")
     await state.set_state(AdminSetup.waiting_for_force_sub)
     await callback.answer()
 
@@ -767,7 +768,7 @@ async def generate_file_link(message: Message, bot: Bot):
     deep_link = f"https://t.me/{bot_me.username}?start=file_{unique_code}"
     
     success_msg = (
-        f"✅ Generate Link Successful!\n\n"
-        f"🔗 File Link :\n`{deep_link}`\n\n"
+        f"✅ <b>Generate Link Success!</b>\n\n"
+        f"🔗 File Link:\n<code>{deep_link}</code>\n\n"
     )
-    await message.answer(success_msg, parse_mode="Markdown")
+    await message.answer(success_msg, parse_mode="HTML")
