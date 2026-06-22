@@ -761,6 +761,7 @@ async def generate_file_link(message: Message, bot: Bot):
         "code": unique_code,
         "file_id": file_id,
         "type": file_type,
+        "caption": caption_text,
         "created_at": message.date
     })
     
